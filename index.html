@@ -17,6 +17,10 @@ body{background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:
 header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
   padding:10px 16px;border-bottom:2px solid var(--ink)}
 header h1{font-size:17px;font-weight:700;letter-spacing:.5px}
+.modetabs{float:right;display:inline-flex;border:1px solid var(--rule);border-radius:2px;overflow:hidden}
+.mtab{font-family:inherit;font-size:10px;letter-spacing:1px;text-transform:uppercase;border:none;
+  background:var(--panel);color:var(--ink-soft);padding:3px 10px;cursor:pointer}
+.mtab.on{background:var(--pcb);color:#fff}
 header h1 .ver{font-size:11px;font-weight:400;color:var(--ink-soft);letter-spacing:.5px}
 header h1 b{color:var(--pcb)}
 header .sub{color:var(--ink-soft);font-size:12px}
@@ -110,7 +114,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </head>
 <body>
 <header>
-  <h1>Seki<b>z</b> <span class="ver">v0.4</span></h1>
+  <h1>Seki<b>z</b> <span class="ver">v0.9</span></h1>
   <span class="sub">sekiz = eight · 8-bit ATmega328P assembly simulator · runs entirely in this page · no server</span>
   <span class="spacer"></span>
   <div class="toolbar">
@@ -137,7 +141,11 @@ h2 .n{color:var(--copper);margin-right:6px}
 <div id="status" class="status">ready</div>
 <main>
   <section>
-    <h2><span class="n">1</span>Program — AVR assembly (.asm)</h2>
+    <h2><span class="n">1</span>Program
+      <span class="modetabs">
+        <button id="modeAsm" class="mtab on">Assembly</button><button id="modeIno" class="mtab">Arduino .ino</button>
+      </span>
+    </h2>
     <div id="srcbar" class="srcbar" hidden></div>
     <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
   </section>
@@ -227,7 +235,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </main>
 <div id="helpModal" class="modal" hidden>
   <div class="modalbox">
-    <h3>Sekiz <span>v0.4 · 8-bit ATmega328P assembly simulator</span></h3>
+    <h3>Sekiz <span>v0.9 · 8-bit ATmega328P assembly simulator</span></h3>
     <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file, offline-capable 8-bit AVR assembly simulator for teaching.
        Everything — assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.</p>
     <h4>Quick start</h4>
@@ -236,9 +244,11 @@ h2 .n{color:var(--copper);margin-right:6px}
        Click any listing row to toggle a <b>breakpoint</b> (red address); Run stops when the PC reaches it.
        Type in the box under the serial monitor and press Enter to send bytes to USART0 (RX).
        The red button on the board resets the running program.</p>
-    <h4>Running C/C++ sketches (.ino)</h4>
-    <p>Compile in the Arduino IDE, choose <i>Sketch → Export Compiled Binary</i>, then use <b>Load .hex</b> here.
-       The machine code runs directly and its disassembly appears in panel 6.</p>
+    <h4>Arduino .ino mode (in-browser compiler)</h4>
+    <p>Switch the Program panel to <b>Arduino .ino</b> and press <b>Compile</b>. The first use downloads
+       the toolchain (~70 MB: real clang + lld built to WebAssembly, AVR backend) which your browser caches;
+       after that, sketches compile locally in seconds. No server is involved at any point.
+       Alternatively: compile in the Arduino IDE, <i>Sketch → Export Compiled Binary</i>, and use <b>Load .hex</b>.</p>
     <h4>Conventions</h4>
     <p>GAS-flavored syntax: labels are byte addresses (avr-gcc convention), <code>lo8()/hi8()</code>,
        numbers as <code>123, 0x7B, 0b1111011, 'A'</code>. Complete ATmega328P instruction set.
@@ -264,6 +274,229 @@ var AVRLAB_CORE=(()=>{var X=(e,n)=>()=>{try{return n||e((n={exports:{}}).exports
 `,r:"\r",t:"	",0:"\0","\\":"\\",'"':'"',"'":"'"};return n[1].replace(/\\(.)/g,(c,r)=>t[r]!==void 0?t[r]:r)}function y0(e){let n=e.split(/\r?\n/),t=new Map,c=[],r=new Set([".text",".section",".global",".globl",".balign",".align",".cseg",".device",".list",".nolist",".end"]);function i(u){let p=O0(u).trim(),s={labels:[],mnem:null,ops:[],directive:null,dops:null},F;for(;F=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*:/.exec(p);)s.labels.push(F[1]),p=p.slice(F[0].length).trim();if(p==="")return s;if(p[0]==="."){let g=p.search(/\s/);return s.directive=(g<0?p:p.slice(0,g)).toLowerCase(),s.dops=g<0?"":p.slice(g+1).trim(),s}let f=p.search(/[\s]/);return s.mnem=(f<0?p:p.slice(0,f)).toLowerCase(),s.ops=f<0?[]:S(p.slice(f+1)),s}function x(u,p,s){if(u===".org")return{org:s(p)};if(u===".db"||u===".byte"||u===".ascii"||u===".asciz"||u===".string"){let F=0;for(let f of S(p)){let g=D(f);F+=g!==null?g.length:1}return(u===".asciz"||u===".string")&&(F+=0),{bytes:F}}return u===".dw"||u===".word"?{bytes:S(p).length*2}:null}let l=0,h=[];for(let u=0;u<n.length;u++){let p;try{p=i(n[u])}catch(s){c.push({line:u+1,msg:s.message});continue}p.srcLine=u+1,p.raw=n[u];for(let s of p.labels)t.has(s)&&c.push({line:u+1,msg:"duplicate label '"+s+"'"}),t.set(s,l);if(p.directive){let s=p.directive;if(s===".equ"||s===".set"){let F=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*[=,]\s*(.+)$/.exec(p.dops);if(!F)c.push({line:u+1,msg:s+" needs NAME = value"});else try{t.set(F[1],L(F[2],t,l))}catch(f){c.push({line:u+1,msg:f.message})}h.push(p);continue}if(r.has(s)){h.push(p);continue}if(s===".org"){try{l=L(p.dops,t,l),l&1&&l++}catch(F){c.push({line:u+1,msg:F.message})}p.orgByte=l,h.push(p);continue}if(s===".db"||s===".byte"||s===".ascii"||s===".asciz"||s===".string"||s===".dw"||s===".word"){let F=0;try{for(let f of S(p.dops)){let g=D(f);g!==null?F+=g.length+(s===".asciz"||s===".string"?1:0):F+=s===".dw"||s===".word"?2:1}}catch(f){c.push({line:u+1,msg:f.message})}p.dataBytes=F,p.pcByte=l,l+=F,l&1&&l++,h.push(p);continue}c.push({line:u+1,msg:"unknown directive "+s}),h.push(p);continue}if(p.mnem){let s=Y[p.mnem];if(!s){c.push({line:u+1,msg:"unknown instruction '"+p.mnem+"'"}),h.push(p);continue}p.pcByte=l,l+=2*s.words,h.push(p);continue}h.push(p)}let v=32768,a=new Uint16Array(v/2).fill(65535),b=[],w=0;for(let u of h){if(u.directive){let s=u.directive;if(u.dataBytes!==void 0){let F=[];try{for(let g of S(u.dops)){let B=D(g);if(B!==null){for(let Z of B)F.push(Z.charCodeAt(0)&255);(s===".asciz"||s===".string")&&F.push(0)}else if(s===".dw"||s===".word"){let Z=L(g,t,u.pcByte)&65535;F.push(Z&255,Z>>8)}else F.push(L(g,t,u.pcByte)&255)}}catch(g){c.push({line:u.srcLine,msg:g.message});continue}F.length&1&&F.push(0);let f=[];for(let g=0;g<F.length;g+=2)f.push(F[g]|F[g+1]<<8);f.forEach((g,B)=>{a[(u.pcByte>>1)+B]=g}),w=Math.max(w,(u.pcByte>>1)+f.length),b.push({addr:u.pcByte,words:f,src:u.raw,line:u.srcLine})}continue}if(!u.mnem||!Y[u.mnem]||u.pcByte===void 0)continue;let p={pcByte:u.pcByte,ev:s=>L(s,t,u.pcByte+2)};try{let s=Y[u.mnem].enc(u.ops,p);s.forEach((F,f)=>{a[(u.pcByte>>1)+f]=F&65535}),w=Math.max(w,(u.pcByte>>1)+s.length),b.push({addr:u.pcByte,words:s,src:u.raw,line:u.srcLine})}catch(s){c.push({line:u.srcLine,msg:s.message})}}return{flash:a,words:a.slice(0,Math.max(w,1)),listing:b,errors:c,symbols:t}}t0.exports={assemble:y0,TABLE:Y}});var n0=X((_0,T)=>{"use strict";function A0(e,n){let{CPU:t,avrInstruction:c,AVRIOPort:r,portBConfig:i,portCConfig:x,portDConfig:l,AVRTimer:h,timer0Config:v,timer1Config:a,timer2Config:b,AVRUSART:w,usart0Config:u,AVRADC:p,adcConfig:s}=e,F=new Uint16Array(32768/2);F.set(n.subarray?n.subarray(0,F.length):n.slice(0,F.length));let f=new t(F),g=new r(f,i),B=new r(f,x),Z=new r(f,l),o0=new h(f,v),c0=new h(f,a),x0=new h(f,b),u0=new w(f,u,16e6),f0=new p(f,s);return{cpu:f,portB:g,portC:B,portD:Z,usart:u0,adc:f0,timer0:o0,timer1:c0,timer2:x0,step(){c(f),f.tick()},run(l0){let p0=f.cycles+l0;for(;f.cycles<p0;)c(f),f.tick()}}}typeof T<"u"&&(T.exports={createRunner:A0})});var i0=X((q0,N)=>{"use strict";function d(e){return e>>4&31}function R(e){return e>>5&16|e&15}function B0(e){return e>>4&240|e&15}function U(e,n){let t=1<<n-1;return(e&t-1)-(e&t)}function C(e,n){return"0x"+(e>>>0).toString(16).padStart(n||2,"0")}function r0(e,n){let t=e[n],c=e[n+1]|0,r=a=>"r"+a,i=a=>({text:a,size:1}),x=a=>({text:a,size:2}),l={0:"nop",38152:"ret",38168:"reti",37897:"ijmp",38153:"icall",38280:"sleep",38296:"break",38312:"wdr",38344:"lpm",38376:"spm"};if(l[t])return i(l[t]);if((t&65295)===37896){let a=t>>4&7,b=!(t&128);return i((b?"se":"cl")+["c","z","n","v","s","h","t","i"][a])}let h=t>>12;if(h===0){if((t&65280)===256)return i("movw	"+r((t>>4&15)*2)+", "+r((t&15)*2));if((t&65280)===512)return i("muls	"+r(16+(t>>4&15))+", "+r(16+(t&15)));if((t&65416)===768)return i("mulsu	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===776)return i("fmul	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===896)return i("fmuls	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===904)return i("fmulsu	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&64512)===1024)return i("cpc	"+r(d(t))+", "+r(R(t)));if((t&64512)===2048)return i("sbc	"+r(d(t))+", "+r(R(t)));if((t&64512)===3072)return d(t)===R(t)?i("lsl	"+r(d(t))):i("add	"+r(d(t))+", "+r(R(t)))}if(h===1){if((t&64512)===4096)return i("cpse	"+r(d(t))+", "+r(R(t)));if((t&64512)===5120)return i("cp	"+r(d(t))+", "+r(R(t)));if((t&64512)===6144)return i("sub	"+r(d(t))+", "+r(R(t)));if((t&64512)===7168)return d(t)===R(t)?i("rol	"+r(d(t))):i("adc	"+r(d(t))+", "+r(R(t)))}if(h===2){if((t&64512)===8192)return d(t)===R(t)?i("tst	"+r(d(t))):i("and	"+r(d(t))+", "+r(R(t)));if((t&64512)===9216)return d(t)===R(t)?i("clr	"+r(d(t))):i("eor	"+r(d(t))+", "+r(R(t)));if((t&64512)===10240)return i("or	"+r(d(t))+", "+r(R(t)));if((t&64512)===11264)return i("mov	"+r(d(t))+", "+r(R(t)))}let v={3:"cpi",4:"sbci",5:"subi",6:"ori",7:"andi",14:"ldi"};if(v[h])return i(v[h]+"	"+r(16+(t>>4&15))+", "+C(B0(t)));if(h===8||h===10){let a=t>>8&32|t>>7&24|t&7,b=t&8?"Y":"Z",w=(t&512)!==0,u=a===0?b:b+"+"+a,p=a===0?w?"st":"ld":w?"std":"ldd";return i(w?p+"	"+u+", "+r(d(t)):p+"	"+r(d(t))+", "+u)}if(h===9){if((t&65039)===36864)return x("lds	"+r(d(t))+", "+C(c,4));if((t&65039)===37376)return x("sts	"+C(c,4)+", "+r(d(t)));let a={1:"Z+",2:"-Z",9:"Y+",10:"-Y",12:"X",13:"X+",14:"-X"};if((t&65024)===36864&&a[t&15])return i("ld	"+r(d(t))+", "+a[t&15]);if((t&65024)===37376&&a[t&15])return i("st	"+a[t&15]+", "+r(d(t)));if((t&65039)===36868)return i("lpm	"+r(d(t))+", Z");if((t&65039)===36869)return i("lpm	"+r(d(t))+", Z+");if((t&65039)===36879)return i("pop	"+r(d(t)));if((t&65039)===37391)return i("push	"+r(d(t)));if((t&65039)===37888)return i("com	"+r(d(t)));if((t&65039)===37889)return i("neg	"+r(d(t)));if((t&65039)===37890)return i("swap	"+r(d(t)));if((t&65039)===37891)return i("inc	"+r(d(t)));if((t&65039)===37893)return i("asr	"+r(d(t)));if((t&65039)===37894)return i("lsr	"+r(d(t)));if((t&65039)===37895)return i("ror	"+r(d(t)));if((t&65039)===37898)return i("dec	"+r(d(t)));if((t&65038)===37900){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("jmp	"+C(2*b,2))}if((t&65038)===37902){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("call	"+C(2*b,2))}if((t&65280)===38400)return i("adiw	"+r(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38656)return i("sbiw	"+r(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38912)return i("cbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39424)return i("sbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39168)return i("sbic	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39680)return i("sbis	"+C(t>>3&31)+", "+(t&7));if((t&64512)===39936)return i("mul	"+r(d(t))+", "+r(R(t)))}if(h===11){let a=t>>5&48|t&15;return t&2048?i("out	"+C(a)+", "+r(d(t))):i("in	"+r(d(t))+", "+C(a))}if(h===12){let a=U(t&4095,12);return i("rjmp	."+(a>=0?"+":"")+2*a+"		; "+C(2*n+2+2*a,2))}if(h===13){let a=U(t&4095,12);return i("rcall	."+(a>=0?"+":"")+2*a+"		; "+C(2*n+2+2*a,2))}if(h===15){if((t&63488)===61440||(t&63488)===62464){let a=(t&1024)===0,b=t&7,w=U(t>>3&127,7),s=(a?["brcs","breq","brmi","brvs","brlt","brhs","brts","brie"]:["brcc","brne","brpl","brvc","brge","brhc","brtc","brid"])[b];return i(s+"	."+(w>=0?"+":"")+2*w+"		; "+C(2*n+2+2*w,2))}if((t&65032)===63488)return i("bld	"+r(d(t))+", "+(t&7));if((t&65032)===64e3)return i("bst	"+r(d(t))+", "+(t&7));if((t&65032)===64512)return i("sbrc	"+r(d(t))+", "+(t&7));if((t&65032)===65024)return i("sbrs	"+r(d(t))+", "+(t&7))}return i(".dw	"+C(t,4))}function k0(e){let n=[];for(let t=0;t<e.length;){let{text:c,size:r}=r0(e,t),i=[];for(let x=0;x<r;x++)i.push(e[t+x]|0);n.push({addr:2*t,words:i,src:"    "+c.replace(/\t/g," "),line:0}),t+=r}return n}typeof N<"u"&&(N.exports={disassemble:k0,disasmOne:r0})});var X0=X((M0,s0)=>{var{assemble:Z0}=e0(),{createRunner:z0}=n0(),{disassemble:I0}=i0();s0.exports={assemble:Z0,createRunner:z0,disassemble:I0}});return X0();})();
 
 ;window.AVRLAB_CORE = AVRLAB_CORE;
+</script>
+<script>
+/* inolab.js -- Sekiz Arduino (.ino) mode runtime.
+ * Loads the sekiz-toolchain artifacts (clang.js/.wasm, lld.js/.wasm,
+ * sysroot.tar.gz), hosts them in a Web Worker, and compiles sketches
+ * entirely in the browser. Toolchain recipe CI-proven 2026-07-30:
+ * PASS: WASM toolchain Blink.ino at 1.0000 s. */
+"use strict";
+
+/* ---------- pure helpers (unit-tested in node) ---------- */
+function sekizUntar(bytes) {
+  /* USTAR reader: Uint8Array (already gunzipped) -> { "path": Uint8Array } */
+  const files = {};
+  const td = new TextDecoder();
+  let off = 0;
+  while (off + 512 <= bytes.length) {
+    const block = bytes.subarray(off, off + 512);
+    if (block.every(b => b === 0)) break;
+    const name = td.decode(block.subarray(0, 100)).replace(/\0.*$/, '');
+    const sizeOct = td.decode(block.subarray(124, 136)).replace(/\0.*$/, '').trim();
+    const size = parseInt(sizeOct || '0', 8);
+    const type = block[156];
+    const prefix = td.decode(block.subarray(345, 500)).replace(/\0.*$/, '');
+    const full = (prefix ? prefix + '/' : '') + name;
+    off += 512;
+    if (type === 48 || type === 0) { /* '0' or NUL: regular file */
+      files[full] = bytes.slice(off, off + size);
+    }
+    off += Math.ceil(size / 512) * 512;
+  }
+  return files;
+}
+
+function sekizElfToWords(buf) {
+  /* ELF32 -> ATmega flash words: PT_LOAD segments with physaddr < 0x800000 */
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  if (dv.getUint32(0, false) !== 0x7F454C46) throw new Error('not an ELF file');
+  const phoff = dv.getUint32(28, true), phentsize = dv.getUint16(42, true), phnum = dv.getUint16(44, true);
+  const flash = new Uint8Array(0x8000).fill(0xFF);
+  let max = 0;
+  for (let i = 0; i < phnum; i++) {
+    const o = phoff + i * phentsize;
+    if (dv.getUint32(o, true) !== 1) continue;         /* PT_LOAD */
+    const offset = dv.getUint32(o + 4, true);
+    const paddr = dv.getUint32(o + 12, true);
+    const filesz = dv.getUint32(o + 16, true);
+    if (paddr >= 0x800000 || filesz === 0) continue;
+    flash.set(buf.subarray(offset, offset + filesz), paddr);
+    max = Math.max(max, paddr + filesz);
+  }
+  if (max === 0) throw new Error('no flash segments in ELF');
+  const words = new Uint16Array(Math.ceil(max / 2));
+  for (let i = 0; i < words.length; i++) words[i] = flash[2 * i] | (flash[2 * i + 1] << 8);
+  return words;
+}
+
+function sekizMapDiagnostics(log) {
+  /* clang reports /sketch.cpp:N; the sketch had '#include <Arduino.h>' prepended,
+   * so user line = N - 1. Returns { first, mapped } */
+  const mapped = log.replace(/\/sketch\.cpp:(\d+):/g, (_, n) => 'sketch line ' + (Number(n) - 1) + ':');
+  const m = /sketch line (\d+):(\d+):\s*(?:fatal )?error:\s*(.*)/.exec(mapped);
+  return { mapped, first: m ? 'line ' + m[1] + ': ' + m[3] : (mapped.split('\n').find(l => /error/.test(l)) || 'compile failed') };
+}
+
+/* ---------- the worker (built from this source string) ---------- */
+const SEKIZ_WORKER_SRC = `
+"use strict";
+${sekizUntar.toString()}
+let TC = null;   /* { files, clangFactory, lldFactory } */
+
+async function fetchProgress(url, label, expectBytes) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(label + ': HTTP ' + res.status + ' for ' + url);
+  const total = Number(res.headers.get('content-length')) || expectBytes || 0;
+  const reader = res.body.getReader();
+  const chunks = []; let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); got += value.length;
+    postMessage({ type: 'progress', label, got, total });
+  }
+  const out = new Uint8Array(got);
+  let o = 0; for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
+async function loadFactory(jsBytes) {
+  const url = URL.createObjectURL(new Blob([jsBytes], { type: 'text/javascript' }));
+  importScripts(url);
+  URL.revokeObjectURL(url);
+  const f = self.createModule;          /* emscripten -sEXPORT_NAME=createModule */
+  self.createModule = undefined;
+  if (!f) throw new Error('toolchain glue did not define createModule');
+  return f;
+}
+
+async function init(base) {
+  const clangJS = await fetchProgress(base + 'clang.js', 'clang.js');
+  const clangWasm = await fetchProgress(base + 'clang.wasm', 'clang.wasm', 46000000);
+  const lldJS = await fetchProgress(base + 'lld.js', 'lld.js');
+  const lldWasm = await fetchProgress(base + 'lld.wasm', 'lld.wasm', 22000000);
+  const srGz = await fetchProgress(base + 'sysroot.tar.gz', 'sysroot');
+  postMessage({ type: 'progress', label: 'unpacking sysroot', got: 0, total: 0 });
+  const tarBuf = await new Response(
+    new Response(srGz).body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  const files = sekizUntar(new Uint8Array(tarBuf));
+  const clangFactory = await loadFactory(clangJS);
+  const lldFactory = await loadFactory(lldJS);
+  TC = { files, clangWasm, lldWasm, clangFactory, lldFactory };
+  postMessage({ type: 'ready', fileCount: Object.keys(files).length });
+}
+
+async function runTool(factory, wasmBinary, args, inputs, wanted) {
+  let log = '';
+  const mod = await factory({
+    wasmBinary,
+    print: s => { log += s + '\\n'; },
+    printErr: s => { log += s + '\\n'; },
+    noInitialRun: true,
+  });
+  const made = new Set();
+  const mk = (p) => {
+    if (!p || p === '/' || made.has(p)) return;
+    mk(p.slice(0, p.lastIndexOf('/')));
+    try { mod.FS.mkdir(p); } catch (e) {}
+    made.add(p);
+  };
+  for (const [path, data] of Object.entries(TC.files)) {
+    const guest = '/' + path;      /* tar paths are 'sysroot/...' */
+    mk(guest.slice(0, guest.lastIndexOf('/')));
+    mod.FS.writeFile(guest, data);
+  }
+  for (const [path, data] of Object.entries(inputs)) mod.FS.writeFile(path, data);
+  let code = 0;
+  try { code = mod.callMain(args); }
+  catch (e) { if (e && e.status !== undefined) code = e.status; else throw e; }
+  const out = {};
+  if (code === 0) for (const w of wanted) out[w] = mod.FS.readFile(w);
+  return { code, log, out };
+}
+
+const PROGMEM_FIX = '-D__progmem__=__section__(".progmem.data")';
+const CFLAGS = ['--target=avr', '-mmcu=atmega328p', '-Os',
+  '-resource-dir', '/sysroot/clangrt',
+  '-DF_CPU=16000000L', '-DARDUINO=10819', '-DARDUINO_AVR_UNO', '-DARDUINO_ARCH_AVR',
+  '-isystem', '/sysroot/include', '-I', '/sysroot/arduino',
+  '-std=gnu++11', '-fno-exceptions', '-fno-rtti', '-Wno-everything', PROGMEM_FIX];
+
+async function compile(source) {
+  const enc = new TextEncoder();
+  const sketch = '#include <Arduino.h>\\n' + source;
+  postMessage({ type: 'stage', stage: 'compiling' });
+  const c = await runTool(TC.clangFactory, TC.clangWasm,
+    [...CFLAGS, '-c', '-x', 'c++', '/sketch.cpp', '-o', '/sketch.o'],
+    { '/sketch.cpp': enc.encode(sketch) }, ['/sketch.o']);
+  if (c.code !== 0) { postMessage({ type: 'error', stage: 'compile', log: c.log }); return; }
+  postMessage({ type: 'stage', stage: 'linking' });
+  const l = await runTool(TC.lldFactory, TC.lldWasm,
+    ['-flavor', 'gnu', '-T', '/sysroot/avr5_lld.ld', '--gc-sections',
+     '/sysroot/lib/crtatmega328p.o', '/sketch.o', '/sysroot/lib/core.a',
+     '/sysroot/lib/libc.a', '/sysroot/lib/libm.a', '/sysroot/lib/libgcc.a',
+     '-o', '/sketch.elf'],
+    { '/sketch.o': c.out['/sketch.o'] }, ['/sketch.elf']);
+  if (l.code !== 0) { postMessage({ type: 'error', stage: 'link', log: l.log }); return; }
+  const elf = l.out['/sketch.elf'];
+  postMessage({ type: 'done', elf: elf.buffer, log: c.log + l.log }, [elf.buffer]);
+}
+
+onmessage = (e) => {
+  const m = e.data;
+  const fail = (err) => postMessage({ type: 'error', stage: 'worker', log: String(err && err.message || err) });
+  if (m.cmd === 'init') init(m.base).catch(fail);
+  else if (m.cmd === 'compile') compile(m.source).catch(fail);
+};
+`;
+
+/* ---------- main-thread controller ---------- */
+const SekizIno = (() => {
+  let worker = null, ready = false, readyPromise = null;
+
+  function ensureWorker(base, onProgress) {
+    if (readyPromise) return readyPromise;
+    const url = URL.createObjectURL(new Blob([SEKIZ_WORKER_SRC], { type: 'text/javascript' }));
+    worker = new Worker(url);
+    readyPromise = new Promise((resolve, reject) => {
+      worker.addEventListener('message', (e) => {
+        const m = e.data;
+        if (m.type === 'progress' && onProgress) onProgress(m);
+        else if (m.type === 'ready') { ready = true; resolve(); }
+        else if (!ready && m.type === 'error') reject(new Error(m.log));
+      });
+      worker.addEventListener('error', (e) => reject(new Error('worker: ' + e.message)));
+      worker.postMessage({ cmd: 'init', base });
+    });
+    return readyPromise;
+  }
+
+  function compile(source, onStage) {
+    return new Promise((resolve, reject) => {
+      const handler = (e) => {
+        const m = e.data;
+        if (m.type === 'stage' && onStage) onStage(m.stage);
+        else if (m.type === 'done') {
+          worker.removeEventListener('message', handler);
+          try { resolve({ words: sekizElfToWords(new Uint8Array(m.elf)), log: m.log }); }
+          catch (err) { reject(err); }
+        } else if (m.type === 'error') {
+          worker.removeEventListener('message', handler);
+          reject(Object.assign(new Error('build failed'), { stage: m.stage, log: m.log }));
+        }
+      };
+      worker.addEventListener('message', handler);
+      worker.postMessage({ cmd: 'compile', source });
+    });
+  }
+
+  return { ensureWorker, compile, get ready() { return ready; } };
+})();
+
+if (typeof module !== 'undefined')
+  module.exports = { sekizUntar, sekizElfToWords, sekizMapDiagnostics, SEKIZ_WORKER_SRC };
+
 </script>
 <script>
 /* ui.js -- Sekiz user interface. Requires globals AVR8, AVRLAB_CORE. */
@@ -493,6 +726,50 @@ start:
     pop  r16
     rjmp start
 `};
+
+const EXAMPLES_INO = {
+"blink (classic)": `// The canonical Arduino Blink, compiled in your browser.
+void setup() {
+  pinMode(LED_BUILTIN, OUTPUT);
+}
+void loop() {
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(1000);
+  digitalWrite(LED_BUILTIN, LOW);
+  delay(1000);
+}
+`,
+"serial + millis": `// Prints uptime twice a second on the serial monitor.
+void setup() {
+  Serial.begin(9600);
+}
+void loop() {
+  Serial.print("millis: ");
+  Serial.println(millis());
+  delay(500);
+}
+`,
+"analog read": `// Reads A0 (set its value in the I/O panel) and prints it.
+void setup() {
+  Serial.begin(9600);
+}
+void loop() {
+  Serial.println(analogRead(A0));
+  delay(300);
+}
+`,
+"button -> led": `// Pin 2 is an input: toggle it in the I/O panel.
+void setup() {
+  pinMode(2, INPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+}
+void loop() {
+  digitalWrite(LED_BUILTIN, digitalRead(2));
+}
+`};
+let editMode = 'asm';                 /* which language the editor holds */
+const buffers = { asm: null, ino: null };
+const TOOLCHAIN_BASE = (typeof location !== 'undefined' && new URLSearchParams(location.search).get('toolchain')) || 'toolchain/';
 
 /* ---------------- state ---------------- */
 let runner = null, listing = [], srcMap = new Map();
@@ -725,17 +1002,67 @@ function parseIntelHex(text) {
 /* ---------------- wiring ---------------- */
 window.addEventListener('DOMContentLoaded', () => {
   const sel = $('examples');
-  for (const name of Object.keys(EXAMPLES)) {
-    const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
+  function fillExamples() {
+    sel.innerHTML = '';
+    const src = editMode === 'ino' ? EXAMPLES_INO : EXAMPLES;
+    for (const name of Object.keys(src)) {
+      const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
+    }
   }
+  fillExamples();
+  function setMode(m) {
+    if (m === editMode) return;
+    buffers[editMode] = $('editor').value;
+    editMode = m;
+    $('modeAsm').classList.toggle('on', m === 'asm');
+    $('modeIno').classList.toggle('on', m === 'ino');
+    $('btnAsm').textContent = m === 'ino' ? 'Compile' : 'Assemble';
+    fillExamples();
+    $('editor').value = buffers[m] !== null ? buffers[m]
+      : (m === 'ino' ? EXAMPLES_INO['blink (classic)'] : EXAMPLES['blink']);
+    if (m === 'asm') doAssemble();
+    else { listing = []; renderListing(); status('Arduino mode — press Compile (first use downloads the ~70 MB toolchain, then it is cached)'); }
+  }
+  $('modeAsm').addEventListener('click', () => setMode('asm'));
+  $('modeIno').addEventListener('click', () => setMode('ino'));
   sel.addEventListener('change', () => {
-    if (EXAMPLES[sel.value]) { stop(); progMode = 'asm'; updateSrcBar(); runner = null; $('editor').value = EXAMPLES[sel.value]; doAssemble(); }
+    const src = editMode === 'ino' ? EXAMPLES_INO : EXAMPLES;
+    if (src[sel.value]) {
+      stop(); runner = null; $('editor').value = src[sel.value];
+      if (editMode === 'asm') { progMode = 'asm'; updateSrcBar(); doAssemble(); }
+      else { listing = []; renderListing(); status('ready to Compile'); }
+    }
   });
   $('editor').value = EXAMPLES['blink'];
   $('btnAsm').addEventListener('click', () => {
+    if (editMode === 'ino') { compileIno(); return; }
     const r = doAssemble();
     if (r) { progMode = 'asm'; updateSrcBar(); makeRunner(r.words); }
   });
+  async function compileIno() {
+    stop();
+    const fmtMB = (n) => (n / 1048576).toFixed(1);
+    try {
+      if (!SekizIno.ready) {
+        await SekizIno.ensureWorker(TOOLCHAIN_BASE, (p) =>
+          status('downloading toolchain: ' + p.label + ' ' + fmtMB(p.got) + (p.total ? ' / ' + fmtMB(p.total) : '') + ' MB'));
+      }
+      status('compiling sketch (clang, in this tab)...');
+      const t0 = performance.now();
+      const { words } = await SekizIno.compile($('editor').value, (stage) =>
+        status(stage + ' (in this tab)...'));
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      progMode = 'ino'; updateSrcBar();
+      listing = AVRLAB_CORE.disassemble(words);
+      renderListing();
+      makeRunner(words);
+      status('compiled in ' + dt + ' s: ' + words.length * 2 + ' bytes of flash. Press Run.');
+    } catch (e) {
+      const d = e.log ? sekizMapDiagnostics(e.log) : { first: e.message };
+      status('compile failed — ' + d.first, true);
+      if (e.log) console.log('[sekiz build log]\n' + e.log);
+    }
+  }
   $('btnRun').addEventListener('click', () => running ? (stop(), status('paused')) : start());
   $('btnStep').addEventListener('click', stepOnce);
   const hwReset = () => {
