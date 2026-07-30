@@ -866,6 +866,11 @@ function makeRunner(words) {
 }
 
 function loadAndReset() {
+  if (editMode === 'ino') {
+    if (progMode === 'ino' && lastWords) { makeRunner(lastWords); return true; }
+    status('Arduino mode — press Compile first', true);
+    return false;
+  }
   const r = doAssemble();
   if (r) makeRunner(r.words);
   return !!r;
@@ -1071,7 +1076,7 @@ window.addEventListener('DOMContentLoaded', () => {
   $('btnStep').addEventListener('click', stepOnce);
   const hwReset = () => {
     stop();
-    if (progMode === 'hex' && lastWords) { makeRunner(lastWords); status('reset (hex program)'); }
+    if (progMode !== 'asm' && lastWords) { makeRunner(lastWords); status('reset (' + progMode + ' program)'); }
     else { loadAndReset(); status('reset'); }
   };
   $('btnReset').addEventListener('click', hwReset);
@@ -1170,7 +1175,7 @@ window.addEventListener('DOMContentLoaded', () => {
     ap.appendChild(wrap); apinEls.push(inp);
   }
   window.__sekiz = { bps, tx: (b) => txQueue.push(b), setPinInput, setAnalog, runner: () => runner };
-  doAssemble();
+  if (editMode === 'asm') doAssemble();   /* ino default: wait for Compile, don't feed C to the assembler */
   updateBadges();
 });
 function updateBadges() {}
