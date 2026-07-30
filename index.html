@@ -17,6 +17,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:
 header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
   padding:10px 16px;border-bottom:2px solid var(--ink)}
 header h1{font-size:17px;font-weight:700;letter-spacing:.5px}
+header h1 .ver{font-size:11px;font-weight:400;color:var(--ink-soft);letter-spacing:.5px}
 header h1 b{color:var(--pcb)}
 header .sub{color:var(--ink-soft);font-size:12px}
 header .spacer{flex:1}
@@ -97,7 +98,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </head>
 <body>
 <header>
-  <h1>Seki<b>z</b></h1>
+  <h1>Seki<b>z</b> <span class="ver">v0.3</span></h1>
   <span class="sub">sekiz = eight · 8-bit ATmega328P assembly simulator · runs entirely in this page · no server</span>
   <span class="spacer"></span>
   <div class="toolbar">
@@ -209,7 +210,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </main>
 <div id="helpModal" class="modal" hidden>
   <div class="modalbox">
-    <h3>Sekiz <span>8-bit ATmega328P assembly simulator</span></h3>
+    <h3>Sekiz <span>v0.3 · 8-bit ATmega328P assembly simulator</span></h3>
     <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file, offline-capable 8-bit AVR assembly simulator for teaching.
        Everything — assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.</p>
     <h4>Quick start</h4>
