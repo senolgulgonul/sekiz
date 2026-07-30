@@ -1,0 +1,24 @@
+name: fetch-toolchain
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download release assets into toolchain/
+        run: |
+          mkdir -p toolchain
+          for f in clang.js clang.wasm lld.js lld.wasm sysroot.tar.gz; do
+            curl -L --fail -o toolchain/$f \
+              https://github.com/senolgulgonul/sekiz-toolchain/releases/download/v0.1.0/$f
+          done
+          ls -la toolchain/
+      - name: Commit
+        run: |
+          git config user.name "sekiz-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add toolchain
+          git commit -m "toolchain v0.1.0 (fetched from sekiz-toolchain release)"
+          git push
