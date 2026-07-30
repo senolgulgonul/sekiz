@@ -250,6 +250,13 @@ h2 .n{color:var(--copper);margin-right:6px}
        the toolchain (~70 MB: real clang + lld built to WebAssembly, AVR backend) which your browser caches;
        after that, sketches compile locally in seconds. No server is involved at any point.
        Alternatively: compile in the Arduino IDE, <i>Sketch → Export Compiled Binary</i>, and use <b>Load .hex</b>.</p>
+    <h4>Differences from avr-gcc (clang backend)</h4>
+    <p><b>Delays:</b> <code>_delay_ms()/_delay_us()</code> work, but run ~0.3% long: clang lacks
+       <code>__builtin_avr_delay_cycles</code>, so Sekiz compiles with avr-libc's classic loop-based delay path.
+       For cycle-exact timing use <code>_delay_loop_2()</code> or hand-written asm.
+       <b>Branch range:</b> clang does not relax out-of-range <code>rjmp/rcall</code> (±4 KB). Very large loop
+       bodies or big inline-asm blocks fail with <i>“out of range branch target”</i> — move the block into a
+       <code>noinline</code> function. Plain avr-gcc accepts the same code silently.</p>
     <h4>Conventions</h4>
     <p>GAS-flavored syntax: labels are byte addresses (avr-gcc convention), <code>lo8()/hi8()</code>,
        numbers as <code>123, 0x7B, 0b1111011, 'A'</code>. Complete ATmega328P instruction set.
