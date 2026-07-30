@@ -7,8 +7,8 @@ compiler (clang + lld with the AVR backend, built to WebAssembly), the
 assembler, the disassembler, the CPU and its peripherals. Type a sketch,
 press Compile, watch pin 13 blink at exactly 1.000 s of simulated time — with
 no compile server involved at any point. No account, no installation, no
-build queue. After the one-time toolchain download (cached by the browser),
-it works offline. Assembly mode needs no download at all: save the file, open
+build queue. After the one-time toolchain download (~28 MB, cached by the
+browser), it works offline. Assembly mode needs no download at all: save the file, open
 it on a bus, it works.
 
 **Try it:** https://senolgulgonul.github.io/sekiz
