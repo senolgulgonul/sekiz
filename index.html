@@ -37,21 +37,33 @@ input[type=file]{display:none}
 .srcbar b{color:#1E5B3F}
 main{display:grid;grid-template-columns:minmax(340px,1.1fr) minmax(300px,1fr) minmax(320px,1fr);
   gap:0;height:calc(100vh - 66px)}
-section{border-right:1px solid var(--rule);display:flex;flex-direction:column;min-height:0}
+section{border-right:1px solid var(--rule);display:flex;flex-direction:column;min-height:0;overflow-y:auto}
 section:last-child{border-right:none}
 h2{font-family:system-ui,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:1.6px;
   text-transform:uppercase;color:var(--ink-soft);padding:8px 12px 4px;border-bottom:1px solid var(--rule)}
 h2 .n{color:var(--copper);margin-right:6px}
-#editor{flex:1;width:100%;resize:none;border:none;outline:none;background:var(--panel);
+#editor{flex:1;min-height:300px;width:100%;resize:none;border:none;outline:none;background:var(--panel);
   color:var(--ink);font:inherit;padding:10px 12px;tab-size:4;min-height:120px}
 .boardwrap{padding:12px;display:flex;justify-content:center;background:var(--panel)}
+#iopanel{padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--rule)}
+.pinrow{display:flex;flex-wrap:wrap;gap:4px;margin:3px 0}
+.dpin{width:34px;text-align:center;font-size:10px;border:1px solid var(--rule);border-radius:2px;
+  padding:2px 0 3px;background:var(--panel);cursor:default;user-select:none}
+.dpin b{display:block;font-size:11px;font-weight:600}
+.dpin .tag{font-family:system-ui,sans-serif;font-size:8px;letter-spacing:.5px;color:var(--ink-soft)}
+.dpin.in{cursor:pointer;border-color:var(--pcb)}
+.dpin.in:hover{background:var(--cur)}
+.dpin.hi b{color:#C0392B}
+.apin{display:flex;align-items:center;gap:3px;font-size:10.5px}
+.apin input{width:44px;font:inherit;font-size:11px;padding:2px 4px;border:1px solid var(--rule);text-align:right}
+.apin input:focus{border-color:var(--pcb);outline:none}
 .serialrow{display:flex;gap:6px;padding:6px 10px;border-top:1px solid var(--rule);background:var(--panel)}
 .serialrow input{flex:1;font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--rule);outline:none}
 .serialrow input:focus{border-color:var(--pcb)}
 .lrow{cursor:pointer}
 .lrow.bp .la{color:#C0392B;font-weight:700}
 .lrow.bp{box-shadow:inset 3px 0 0 #C0392B}
-#serial{flex:1;min-height:80px;background:var(--panel);color:var(--ink);padding:10px 12px;overflow:auto;
+#serial{flex:1;min-height:110px;background:var(--panel);color:var(--ink);padding:10px 12px;overflow:auto;
   white-space:pre-wrap;word-break:break-all;border-top:1px solid var(--rule)}
 .grid8{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
   border-bottom:1px solid var(--rule)}
@@ -70,7 +82,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 .counters div{background:var(--panel);padding:4px 10px}
 .counters div span{display:block;font-family:system-ui,sans-serif;font-size:9.5px;letter-spacing:1px;
   text-transform:uppercase;color:var(--ink-soft)}
-#listing{flex:1;overflow:auto;background:var(--panel)}
+#listing{flex:1;min-height:220px;overflow:auto;background:var(--panel)}
 .lrow{display:flex;gap:10px;padding:1px 12px;white-space:pre}
 .lrow.cur{background:var(--cur);box-shadow:inset 3px 0 0 var(--pcb)}
 .la{color:var(--copper);min-width:38px}
@@ -98,7 +110,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </head>
 <body>
 <header>
-  <h1>Seki<b>z</b> <span class="ver">v0.3</span></h1>
+  <h1>Seki<b>z</b> <span class="ver">v0.4</span></h1>
   <span class="sub">sekiz = eight · 8-bit ATmega328P assembly simulator · runs entirely in this page · no server</span>
   <span class="spacer"></span>
   <div class="toolbar">
@@ -186,7 +198,12 @@ h2 .n{color:var(--copper);margin-right:6px}
         <line x1="231" y1="168" x2="301" y2="168" stroke="#FFFFFF" stroke-width="1"/>
         </svg>
     </div>
-    <h2><span class="n">3</span>Serial monitor — USART0 · TX out, RX in below</h2>
+    <h2><span class="n">3</span>I/O — click IN pins to toggle · A0-A5 accept 0-1023</h2>
+    <div id="iopanel">
+      <div id="dpins" class="pinrow"></div>
+      <div id="apins" class="pinrow"></div>
+    </div>
+    <h2><span class="n">4</span>Serial monitor — USART0 · TX out, RX in below</h2>
     <pre id="serial"></pre>
     <div class="serialrow">
       <input id="serialIn" type="text" placeholder="type here, Enter sends (adds \n)" autocomplete="off">
@@ -194,9 +211,9 @@ h2 .n{color:var(--copper);margin-right:6px}
     </div>
   </section>
   <section>
-    <h2><span class="n">4</span>Registers R0–R31</h2>
+    <h2><span class="n">5</span>Registers R0–R31</h2>
     <div id="regs" class="grid8"></div>
-    <h2><span class="n">5</span>SREG</h2>
+    <h2><span class="n">6</span>SREG</h2>
     <div id="sreg"></div>
     <div class="counters">
       <div><span>PC</span><em id="pcv">0x0000</em></div>
@@ -204,13 +221,13 @@ h2 .n{color:var(--copper);margin-right:6px}
       <div><span>Cycles</span><em id="cyv">0</em></div>
       <div><span>Simulated time</span><em id="tmv">0.000 ms</em></div>
     </div>
-    <h2><span class="n">6</span>Machine code</h2>
+    <h2><span class="n">7</span>Machine code</h2>
     <div id="listing"></div>
   </section>
 </main>
 <div id="helpModal" class="modal" hidden>
   <div class="modalbox">
-    <h3>Sekiz <span>v0.3 · 8-bit ATmega328P assembly simulator</span></h3>
+    <h3>Sekiz <span>v0.4 · 8-bit ATmega328P assembly simulator</span></h3>
     <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file, offline-capable 8-bit AVR assembly simulator for teaching.
        Everything — assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.</p>
     <h4>Quick start</h4>
@@ -243,8 +260,8 @@ h2 .n{color:var(--copper);margin-right:6px}
 </script>
 <script>
 /* ===== Sekiz core: assembler + disassembler + runner (MIT) ===== */
-var AVRLAB_CORE=(()=>{var X=(e,r)=>()=>{try{return r||e((r={exports:{}}).exports,r),r.exports}catch(t){throw r=0,t}};var H=X((X0,P)=>{"use strict";var K={xl:26,xh:27,yl:28,yh:29,zl:30,zh:31};function k(e){if(e==null)return null;let r=e.trim().toLowerCase();if(K[r]!==void 0)return K[r];let t=/^r(\d{1,2})$/.exec(r);if(!t)return null;let c=parseInt(t[1],10);return c<=31?c:null}function f0(e){let r=[],t=0,c=n=>/[A-Za-z0-9_$.]/.test(n);for(;t<e.length;){let n=e[t];if(n===" "||n==="	"){t++;continue}if(n==="'"){let i,x=t+1;if(e[x]==="\\"){if(i={n:10,r:13,t:9,0:0,"\\":92,"'":39,'"':34}[e[x+1]],i===void 0)throw new Error("bad escape in char literal");x+=2}else i=e.charCodeAt(x),x+=1;if(e[x]!=="'")throw new Error("unterminated char literal");r.push({t:"num",v:i}),t=x+1;continue}if(n==="$"&&/[0-9A-Fa-f]/.test(e[t+1]||"")){let i=t+1,x="";for(;i<e.length&&/[0-9A-Fa-f]/.test(e[i]);)x+=e[i++];r.push({t:"num",v:parseInt(x,16)}),t=i;continue}if(/[0-9]/.test(n)){let i=t,x="";for(;i<e.length&&/[0-9A-Fa-fxXbB_]/.test(e[i]);)x+=e[i++];x=x.replace(/_/g,"");let f;if(/^0[xX]/.test(x))f=parseInt(x,16);else if(/^0[bB][01]+$/.test(x))f=parseInt(x.slice(2),2);else if(/^[0-9]+$/.test(x))f=parseInt(x,10);else throw new Error("bad number: "+x);r.push({t:"num",v:f}),t=i;continue}if(/[A-Za-z_.]/.test(n)){let i=t,x="";for(;i<e.length&&c(e[i]);)x+=e[i++];r.push({t:"id",v:x}),t=i;continue}if(n==="<"&&e[t+1]==="<"){r.push({t:"op",v:"<<"}),t+=2;continue}if(n===">"&&e[t+1]===">"){r.push({t:"op",v:">>"}),t+=2;continue}if("+-*/%&|^~()".includes(n)){r.push({t:"op",v:n}),t++;continue}throw new Error("unexpected character '"+n+"' in expression")}return r}function l0(e,r,t){let c=f0(e),n=0,i=()=>c[n],x=()=>c[n++];function f(){let s=x();if(!s)throw new Error("unexpected end of expression");if(s.t==="num")return s.v;if(s.t==="op"&&s.v==="("){let a=u(),F=x();if(!F||F.v!==")")throw new Error("missing ')'");return a}if(s.t==="op"&&s.v==="-")return-f();if(s.t==="op"&&s.v==="~")return~f();if(s.t==="op"&&s.v==="+")return f();if(s.t==="id"){let a=s.v,F=a.toLowerCase();if((F==="lo8"||F==="low"||F==="hi8"||F==="high"||F==="byte3"||F==="hh8")&&i()&&i().v==="("){x();let g=u(),B=x();if(!B||B.v!==")")throw new Error("missing ')' after "+a);return F==="lo8"||F==="low"?g&255:F==="hi8"||F==="high"?g>>8&255:g>>16&255}if(a===".")return t;if(r.has(a))return r.get(a);throw new Error("undefined symbol '"+a+"'")}throw new Error("unexpected token in expression")}function h(){let s=f();for(;i()&&i().t==="op"&&["*","/","%"].includes(i().v);){let a=x().v,F=f();a==="*"?s*=F:a==="/"?s=Math.trunc(s/F):s%=F}return s}function v(){let s=h();for(;i()&&i().t==="op"&&["+","-"].includes(i().v);){let a=x().v,F=h();s=a==="+"?s+F:s-F}return s}function p(){let s=v();for(;i()&&i().t==="op"&&["<<",">>"].includes(i().v);){let a=x().v,F=v();s=a==="<<"?s<<F:s>>F}return s}function b(){let s=p();for(;i()&&i().v==="&";)x(),s&=p();return s}function w(){let s=b();for(;i()&&i().v==="^";)x(),s^=b();return s}function u(){let s=w();for(;i()&&i().v==="|";)x(),s|=w();return s}let l=u();if(n!==c.length)throw new Error("trailing junk in expression");return l}function z(e){return(e&31)<<4}function G(e){return(e&16)<<5|e&15}function j(e,r,t,c){if(e<r||e>t)throw new Error(c+" out of range ("+r+".."+t+"): "+e);return e}function I(e,r,t){if(e==null)throw new Error(t+": expected a register");if(e<r)throw new Error(t+": register must be r"+r+"..r31");return e}function V(e,r,t,c){if(e&1)throw new Error(c+": branch target must be even (byte address)");let n=(e-r-2)/2,i=1<<t-1;if(n<-i||n>=i)throw new Error(c+": target out of range ("+n+" words)");return n&(1<<t)-1}function p0(e){return(r,t)=>{let c=I(k(r[0]),0,"Rd"),n=I(k(r[1]),0,"Rr");return[e|z(c)|G(n)]}}function a0(e){return(r,t)=>{let c=I(k(r[0]),16,"Rd"),n=t.ev(r[1]);if(n<-128||n>255)throw new Error("K out of range (-128..255): "+n);return n&=255,[e|(n&240)<<4|c-16<<4|n&15]}}function F0(e,r){return t=>{let c=I(k(t[0]),0,"Rd");return[e|z(c)|r]}}function d0(e){return(r,t)=>{let c=r[0];c.includes(":")&&(c=c.split(":")[1]);let n=k(c);if(![24,26,28,30].includes(n))throw new Error("register must be r24/r26/r28/r30 (pair low)");let i=j(t.ev(r[1]),0,63,"K");return[e|(i&48)<<2|(n-24)/2<<4|i&15]}}function m0(e){return(r,t)=>{let c=j(t.ev(r[0]),0,31,"I/O address"),n=j(t.ev(r[1]),0,7,"bit");return[e|c<<3|n]}}function h0(e,r){return(t,c)=>{let n=c.ev(t[0]),i=V(n,c.pcByte,7,"branch");return[(r?61440:62464)|i<<3|e]}}function g0(e){return(r,t)=>{let c=e?r[1]:r[0],n=(e?r[0]:r[1]).replace(/\s+/g,""),i=I(k(c),0,e?"Rr":"Rd"),x=e?512:0,f=n.toUpperCase(),h={Z:[32768,0],"Z+":[36864,1],"-Z":[36864,2],Y:[32776,0],"Y+":[36872,1],"-Y":[36872,2],X:[36876,0],"X+":[36876,1],"-X":[36876,2]};if(h[f]){let[p,b]=h[f];if(f[0]==="X"||f==="-X")return p=36876+(f==="X"?0:f==="X+"?1:2),[p|x|z(i)];if(b!==0&&p<36864)throw new Error("internal");return[p+(p>=36864?b:0)|x|z(i)]}let v=/^([YZ])\+(.+)$/i.exec(n);if(v){let p=j(t.ev(v[2]),0,63,"displacement q"),b=v[1].toUpperCase()==="Y"?8:0;return[32768|x|z(i)|b|(p&32)<<8|(p&24)<<7|p&7]}throw new Error("bad memory operand '"+n+"'")}}P.exports={parseReg:k,evalExpr:l0,encRd:z,encRr:G,chkRange:j,chkReg:I,relOff:V,twoRegOp:p0,immOp:a0,oneRegOp:F0,wideImmOp:d0,ioBitOp:m0,branchOp:h0,ldStXYZ:g0}});var e0=X((j0,t0)=>{"use strict";var m=H(),{parseReg:E,evalExpr:L,encRd:A,encRr:b0,chkRange:y,chkReg:O,relOff:Q}=m,J={Z:32768,"Z+":36865,"-Z":36866,Y:32776,"Y+":36873,"-Y":36874,X:36876,"X+":36877,"-X":36878};function _(e){return(r,t)=>{let c=e?r[1]:r[0],n=(e?r[0]:r[1]).replace(/\s+/g,""),i=O(E(c),0,e?"Rr":"Rd"),x=e?512:0,f=n.toUpperCase();if(J[f]!==void 0)return[J[f]|x|A(i)];let h=/^([YZ])\+(.+)$/i.exec(n);if(h){let v=y(t.ev(h[2]),0,63,"displacement q"),p=h[1].toUpperCase()==="Y"?8:0;return[32768|x|A(i)|p|(v&32)<<8|(v&24)<<7|v&7]}throw new Error("bad memory operand '"+n+"'")}}var Y={};function o(e,r,t){Y[e]={words:r,enc:t}}o("add",1,m.twoRegOp(3072));o("adc",1,m.twoRegOp(7168));o("sub",1,m.twoRegOp(6144));o("sbc",1,m.twoRegOp(2048));o("and",1,m.twoRegOp(8192));o("or",1,m.twoRegOp(10240));o("eor",1,m.twoRegOp(9216));o("mov",1,m.twoRegOp(11264));o("cp",1,m.twoRegOp(5120));o("cpc",1,m.twoRegOp(1024));o("cpse",1,m.twoRegOp(4096));o("mul",1,m.twoRegOp(39936));function q(e){return r=>{let t=O(E(r[0]),0,"Rd");return[e|A(t)|b0(t)]}}o("tst",1,q(8192));o("clr",1,q(9216));o("lsl",1,q(3072));o("rol",1,q(7168));o("cpi",1,m.immOp(12288));o("sbci",1,m.immOp(16384));o("subi",1,m.immOp(20480));o("ori",1,m.immOp(24576));o("andi",1,m.immOp(28672));o("ldi",1,m.immOp(57344));o("sbr",1,m.immOp(24576));o("cbr",1,(e,r)=>m.immOp(28672)([e[0],String(~r.ev(e[1])&255)],r));o("ser",1,e=>[61199|O(E(e[0]),16,"Rd")-16<<4]);o("com",1,m.oneRegOp(37888,0));o("neg",1,m.oneRegOp(37888,1));o("swap",1,m.oneRegOp(37888,2));o("inc",1,m.oneRegOp(37888,3));o("asr",1,m.oneRegOp(37888,5));o("lsr",1,m.oneRegOp(37888,6));o("ror",1,m.oneRegOp(37888,7));o("dec",1,m.oneRegOp(37888,10));o("push",1,m.oneRegOp(37376,15));o("pop",1,m.oneRegOp(36864,15));o("muls",1,e=>{let r=O(E(e[0]),16,"Rd"),t=O(E(e[1]),16,"Rr");return[512|r-16<<4|t-16]});function M(e){return r=>{let t=E(r[0]),c=E(r[1]);if(t==null||c==null||t<16||t>23||c<16||c>23)throw new Error("registers must be r16..r23");return[e|t-16<<4|c-16]}}o("mulsu",1,M(768));o("fmul",1,M(776));o("fmuls",1,M(896));o("fmulsu",1,M(904));o("movw",1,e=>{let r=e[0].includes(":")?E(e[0].split(":")[1]):E(e[0]),t=e[1].includes(":")?E(e[1].split(":")[1]):E(e[1]);if(r==null||t==null||r&1||t&1)throw new Error("movw needs even registers (pairs)");return[256|r/2<<4|t/2]});o("adiw",1,m.wideImmOp(38400));o("sbiw",1,m.wideImmOp(38656));o("in",1,(e,r)=>{let t=O(E(e[0]),0,"Rd"),c=y(r.ev(e[1]),0,63,"I/O address");return[45056|(c&48)<<5|A(t)|c&15]});o("out",1,(e,r)=>{let t=y(r.ev(e[0]),0,63,"I/O address"),c=O(E(e[1]),0,"Rr");return[47104|(t&48)<<5|A(c)|t&15]});o("sbi",1,m.ioBitOp(39424));o("cbi",1,m.ioBitOp(38912));o("sbic",1,m.ioBitOp(39168));o("sbis",1,m.ioBitOp(39680));function $(e){return(r,t)=>{let c=O(E(r[0]),0,"Rr"),n=y(t.ev(r[1]),0,7,"bit");return[e|A(c)|n]}}o("sbrc",1,$(64512));o("sbrs",1,$(65024));o("bst",1,$(64e3));o("bld",1,$(63488));o("bset",1,(e,r)=>[37896|y(r.ev(e[0]),0,7,"flag")<<4]);o("bclr",1,(e,r)=>[38024|y(r.ev(e[0]),0,7,"flag")<<4]);var w0={c:0,z:1,n:2,v:3,s:4,h:5,t:6,i:7};for(let[e,r]of Object.entries(w0))o("se"+e,1,()=>[37896|r<<4]),o("cl"+e,1,()=>[38024|r<<4]);o("rjmp",1,(e,r)=>[49152|Q(r.ev(e[0]),r.pcByte,12,"rjmp")&4095]);o("rcall",1,(e,r)=>[53248|Q(r.ev(e[0]),r.pcByte,12,"rcall")&4095]);o("brbs",1,(e,r)=>m.branchOp(y(r.ev(e[0]),0,7,"flag"),!0)([e[1]],r));o("brbc",1,(e,r)=>m.branchOp(y(r.ev(e[0]),0,7,"flag"),!1)([e[1]],r));var v0={breq:[1,1],brne:[1,0],brcs:[0,1],brlo:[0,1],brcc:[0,0],brsh:[0,0],brmi:[2,1],brpl:[2,0],brvs:[3,1],brvc:[3,0],brlt:[4,1],brge:[4,0],brhs:[5,1],brhc:[5,0],brts:[6,1],brtc:[6,0],brie:[7,1],brid:[7,0]};for(let[e,[r,t]]of Object.entries(v0))o(e,1,m.branchOp(r,!!t));function W(e){return(r,t)=>{let c=t.ev(r[0]);if(c&1)throw new Error("target must be even byte address");let n=c>>1;return y(n,0,4194303,"target"),[e|(n>>17&31)<<4|n>>16&1,n&65535]}}o("jmp",2,W(37900));o("call",2,W(37902));o("lds",2,(e,r)=>{let t=O(E(e[0]),0,"Rd");return[36864|A(t),y(r.ev(e[1]),0,65535,"address")]});o("sts",2,(e,r)=>{let t=O(E(e[1]),0,"Rr");return[37376|A(t),y(r.ev(e[0]),0,65535,"address")]});o("ld",1,_(!1));o("st",1,_(!0));o("ldd",1,_(!1));o("std",1,_(!0));o("lpm",1,e=>{if(e.length===0)return[38344];let r=O(E(e[0]),0,"Rd"),t=e[1].replace(/\s+/g,"").toUpperCase();if(t==="Z")return[36868|A(r)];if(t==="Z+")return[36869|A(r)];throw new Error("lpm needs Z or Z+")});o("spm",1,()=>[38376]);o("ijmp",1,()=>[37897]);o("icall",1,()=>[38153]);o("ret",1,()=>[38152]);o("reti",1,()=>[38168]);o("nop",1,()=>[0]);o("sleep",1,()=>[38280]);o("wdr",1,()=>[38312]);o("break",1,()=>[38296]);function E0(e){let r="",t=0,c=!1,n=!1;for(;t<e.length;){let i=e[t];if(c){r+=i,i==="\\"?r+=e[++t]||"":i==="'"&&(c=!1),t++;continue}if(n){r+=i,i==="\\"?r+=e[++t]||"":i==='"'&&(n=!1),t++;continue}if(i==="'"){c=!0,r+=i,t++;continue}if(i==='"'){n=!0,r+=i,t++;continue}if(i===";"||i==="/"&&e[t+1]==="/")break;if(i==="/"&&e[t+1]==="*"){let x=e.indexOf("*/",t+2);if(x<0)break;t=x+2;continue}r+=i,t++}return r}function S(e){let r=[],t="",c=0,n=!1,i=!1;for(let x=0;x<e.length;x++){let f=e[x];if(n){t+=f,f==="\\"?t+=e[++x]||"":f==="'"&&(n=!1);continue}if(i){t+=f,f==="\\"?t+=e[++x]||"":f==='"'&&(i=!1);continue}if(f==="'"){n=!0,t+=f;continue}if(f==='"'){i=!0,t+=f;continue}if(f==="("&&c++,f===")"&&c--,f===","&&c===0){r.push(t.trim()),t="";continue}t+=f}return t.trim()!==""&&r.push(t.trim()),r}function T(e){let r=/^"((?:[^"\\]|\\.)*)"$/.exec(e.trim());if(!r)return null;let t={n:`
-`,r:"\r",t:"	",0:"\0","\\":"\\",'"':'"',"'":"'"};return r[1].replace(/\\(.)/g,(c,n)=>t[n]!==void 0?t[n]:n)}function C0(e){let r=e.split(/\r?\n/),t=new Map,c=[],n=new Set([".text",".section",".global",".globl",".balign",".align",".cseg",".device",".list",".nolist",".end"]);function i(u){let l=E0(u).trim(),s={labels:[],mnem:null,ops:[],directive:null,dops:null},a;for(;a=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*:/.exec(l);)s.labels.push(a[1]),l=l.slice(a[0].length).trim();if(l==="")return s;if(l[0]==="."){let g=l.search(/\s/);return s.directive=(g<0?l:l.slice(0,g)).toLowerCase(),s.dops=g<0?"":l.slice(g+1).trim(),s}let F=l.search(/[\s]/);return s.mnem=(F<0?l:l.slice(0,F)).toLowerCase(),s.ops=F<0?[]:S(l.slice(F+1)),s}function x(u,l,s){if(u===".org")return{org:s(l)};if(u===".db"||u===".byte"||u===".ascii"||u===".asciz"||u===".string"){let a=0;for(let F of S(l)){let g=T(F);a+=g!==null?g.length:1}return(u===".asciz"||u===".string")&&(a+=0),{bytes:a}}return u===".dw"||u===".word"?{bytes:S(l).length*2}:null}let f=0,h=[];for(let u=0;u<r.length;u++){let l;try{l=i(r[u])}catch(s){c.push({line:u+1,msg:s.message});continue}l.srcLine=u+1,l.raw=r[u];for(let s of l.labels)t.has(s)&&c.push({line:u+1,msg:"duplicate label '"+s+"'"}),t.set(s,f);if(l.directive){let s=l.directive;if(s===".equ"||s===".set"){let a=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*[=,]\s*(.+)$/.exec(l.dops);if(!a)c.push({line:u+1,msg:s+" needs NAME = value"});else try{t.set(a[1],L(a[2],t,f))}catch(F){c.push({line:u+1,msg:F.message})}h.push(l);continue}if(n.has(s)){h.push(l);continue}if(s===".org"){try{f=L(l.dops,t,f),f&1&&f++}catch(a){c.push({line:u+1,msg:a.message})}l.orgByte=f,h.push(l);continue}if(s===".db"||s===".byte"||s===".ascii"||s===".asciz"||s===".string"||s===".dw"||s===".word"){let a=0;try{for(let F of S(l.dops)){let g=T(F);g!==null?a+=g.length+(s===".asciz"||s===".string"?1:0):a+=s===".dw"||s===".word"?2:1}}catch(F){c.push({line:u+1,msg:F.message})}l.dataBytes=a,l.pcByte=f,f+=a,f&1&&f++,h.push(l);continue}c.push({line:u+1,msg:"unknown directive "+s}),h.push(l);continue}if(l.mnem){let s=Y[l.mnem];if(!s){c.push({line:u+1,msg:"unknown instruction '"+l.mnem+"'"}),h.push(l);continue}l.pcByte=f,f+=2*s.words,h.push(l);continue}h.push(l)}let v=32768,p=new Uint16Array(v/2).fill(65535),b=[],w=0;for(let u of h){if(u.directive){let s=u.directive;if(u.dataBytes!==void 0){let a=[];try{for(let g of S(u.dops)){let B=T(g);if(B!==null){for(let Z of B)a.push(Z.charCodeAt(0)&255);(s===".asciz"||s===".string")&&a.push(0)}else if(s===".dw"||s===".word"){let Z=L(g,t,u.pcByte)&65535;a.push(Z&255,Z>>8)}else a.push(L(g,t,u.pcByte)&255)}}catch(g){c.push({line:u.srcLine,msg:g.message});continue}a.length&1&&a.push(0);let F=[];for(let g=0;g<a.length;g+=2)F.push(a[g]|a[g+1]<<8);F.forEach((g,B)=>{p[(u.pcByte>>1)+B]=g}),w=Math.max(w,(u.pcByte>>1)+F.length),b.push({addr:u.pcByte,words:F,src:u.raw,line:u.srcLine})}continue}if(!u.mnem||!Y[u.mnem]||u.pcByte===void 0)continue;let l={pcByte:u.pcByte,ev:s=>L(s,t,u.pcByte+2)};try{let s=Y[u.mnem].enc(u.ops,l);s.forEach((a,F)=>{p[(u.pcByte>>1)+F]=a&65535}),w=Math.max(w,(u.pcByte>>1)+s.length),b.push({addr:u.pcByte,words:s,src:u.raw,line:u.srcLine})}catch(s){c.push({line:u.srcLine,msg:s.message})}}return{flash:p,words:p.slice(0,Math.max(w,1)),listing:b,errors:c,symbols:t}}t0.exports={assemble:C0,TABLE:Y}});var r0=X((L0,D)=>{"use strict";function R0(e,r){let{CPU:t,avrInstruction:c,AVRIOPort:n,portBConfig:i,portCConfig:x,portDConfig:f,AVRTimer:h,timer0Config:v,timer1Config:p,timer2Config:b,AVRUSART:w,usart0Config:u}=e,l=new Uint16Array(32768/2);l.set(r.subarray?r.subarray(0,l.length):r.slice(0,l.length));let s=new t(l),a=new n(s,i),F=new n(s,x),g=new n(s,f),B=new h(s,v),Z=new h(s,p),o0=new h(s,b),c0=new w(s,u,16e6);return{cpu:s,portB:a,portC:F,portD:g,usart:c0,timer0:B,timer1:Z,timer2:o0,step(){c(s),s.tick()},run(x0){let u0=s.cycles+x0;for(;s.cycles<u0;)c(s),s.tick()}}}typeof D<"u"&&(D.exports={createRunner:R0})});var i0=X((S0,N)=>{"use strict";function d(e){return e>>4&31}function R(e){return e>>5&16|e&15}function O0(e){return e>>4&240|e&15}function U(e,r){let t=1<<r-1;return(e&t-1)-(e&t)}function C(e,r){return"0x"+(e>>>0).toString(16).padStart(r||2,"0")}function n0(e,r){let t=e[r],c=e[r+1]|0,n=p=>"r"+p,i=p=>({text:p,size:1}),x=p=>({text:p,size:2}),f={0:"nop",38152:"ret",38168:"reti",37897:"ijmp",38153:"icall",38280:"sleep",38296:"break",38312:"wdr",38344:"lpm",38376:"spm"};if(f[t])return i(f[t]);if((t&65295)===37896){let p=t>>4&7,b=!(t&128);return i((b?"se":"cl")+["c","z","n","v","s","h","t","i"][p])}let h=t>>12;if(h===0){if((t&65280)===256)return i("movw	"+n((t>>4&15)*2)+", "+n((t&15)*2));if((t&65280)===512)return i("muls	"+n(16+(t>>4&15))+", "+n(16+(t&15)));if((t&65416)===768)return i("mulsu	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===776)return i("fmul	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===896)return i("fmuls	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===904)return i("fmulsu	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&64512)===1024)return i("cpc	"+n(d(t))+", "+n(R(t)));if((t&64512)===2048)return i("sbc	"+n(d(t))+", "+n(R(t)));if((t&64512)===3072)return d(t)===R(t)?i("lsl	"+n(d(t))):i("add	"+n(d(t))+", "+n(R(t)))}if(h===1){if((t&64512)===4096)return i("cpse	"+n(d(t))+", "+n(R(t)));if((t&64512)===5120)return i("cp	"+n(d(t))+", "+n(R(t)));if((t&64512)===6144)return i("sub	"+n(d(t))+", "+n(R(t)));if((t&64512)===7168)return d(t)===R(t)?i("rol	"+n(d(t))):i("adc	"+n(d(t))+", "+n(R(t)))}if(h===2){if((t&64512)===8192)return d(t)===R(t)?i("tst	"+n(d(t))):i("and	"+n(d(t))+", "+n(R(t)));if((t&64512)===9216)return d(t)===R(t)?i("clr	"+n(d(t))):i("eor	"+n(d(t))+", "+n(R(t)));if((t&64512)===10240)return i("or	"+n(d(t))+", "+n(R(t)));if((t&64512)===11264)return i("mov	"+n(d(t))+", "+n(R(t)))}let v={3:"cpi",4:"sbci",5:"subi",6:"ori",7:"andi",14:"ldi"};if(v[h])return i(v[h]+"	"+n(16+(t>>4&15))+", "+C(O0(t)));if(h===8||h===10){let p=t>>8&32|t>>7&24|t&7,b=t&8?"Y":"Z",w=(t&512)!==0,u=p===0?b:b+"+"+p,l=p===0?w?"st":"ld":w?"std":"ldd";return i(w?l+"	"+u+", "+n(d(t)):l+"	"+n(d(t))+", "+u)}if(h===9){if((t&65039)===36864)return x("lds	"+n(d(t))+", "+C(c,4));if((t&65039)===37376)return x("sts	"+C(c,4)+", "+n(d(t)));let p={1:"Z+",2:"-Z",9:"Y+",10:"-Y",12:"X",13:"X+",14:"-X"};if((t&65024)===36864&&p[t&15])return i("ld	"+n(d(t))+", "+p[t&15]);if((t&65024)===37376&&p[t&15])return i("st	"+p[t&15]+", "+n(d(t)));if((t&65039)===36868)return i("lpm	"+n(d(t))+", Z");if((t&65039)===36869)return i("lpm	"+n(d(t))+", Z+");if((t&65039)===36879)return i("pop	"+n(d(t)));if((t&65039)===37391)return i("push	"+n(d(t)));if((t&65039)===37888)return i("com	"+n(d(t)));if((t&65039)===37889)return i("neg	"+n(d(t)));if((t&65039)===37890)return i("swap	"+n(d(t)));if((t&65039)===37891)return i("inc	"+n(d(t)));if((t&65039)===37893)return i("asr	"+n(d(t)));if((t&65039)===37894)return i("lsr	"+n(d(t)));if((t&65039)===37895)return i("ror	"+n(d(t)));if((t&65039)===37898)return i("dec	"+n(d(t)));if((t&65038)===37900){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("jmp	"+C(2*b,2))}if((t&65038)===37902){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("call	"+C(2*b,2))}if((t&65280)===38400)return i("adiw	"+n(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38656)return i("sbiw	"+n(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38912)return i("cbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39424)return i("sbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39168)return i("sbic	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39680)return i("sbis	"+C(t>>3&31)+", "+(t&7));if((t&64512)===39936)return i("mul	"+n(d(t))+", "+n(R(t)))}if(h===11){let p=t>>5&48|t&15;return t&2048?i("out	"+C(p)+", "+n(d(t))):i("in	"+n(d(t))+", "+C(p))}if(h===12){let p=U(t&4095,12);return i("rjmp	."+(p>=0?"+":"")+2*p+"		; "+C(2*r+2+2*p,2))}if(h===13){let p=U(t&4095,12);return i("rcall	."+(p>=0?"+":"")+2*p+"		; "+C(2*r+2+2*p,2))}if(h===15){if((t&63488)===61440||(t&63488)===62464){let p=(t&1024)===0,b=t&7,w=U(t>>3&127,7),s=(p?["brcs","breq","brmi","brvs","brlt","brhs","brts","brie"]:["brcc","brne","brpl","brvc","brge","brhc","brtc","brid"])[b];return i(s+"	."+(w>=0?"+":"")+2*w+"		; "+C(2*r+2+2*w,2))}if((t&65032)===63488)return i("bld	"+n(d(t))+", "+(t&7));if((t&65032)===64e3)return i("bst	"+n(d(t))+", "+(t&7));if((t&65032)===64512)return i("sbrc	"+n(d(t))+", "+(t&7));if((t&65032)===65024)return i("sbrs	"+n(d(t))+", "+(t&7))}return i(".dw	"+C(t,4))}function y0(e){let r=[];for(let t=0;t<e.length;){let{text:c,size:n}=n0(e,t),i=[];for(let x=0;x<n;x++)i.push(e[t+x]|0);r.push({addr:2*t,words:i,src:"    "+c.replace(/\t/g," "),line:0}),t+=n}return r}typeof N<"u"&&(N.exports={disassemble:y0,disasmOne:n0})});var Z0=X((Y0,s0)=>{var{assemble:A0}=e0(),{createRunner:B0}=r0(),{disassemble:k0}=i0();s0.exports={assemble:A0,createRunner:B0,disassemble:k0}});return Z0();})();
+var AVRLAB_CORE=(()=>{var X=(e,n)=>()=>{try{return n||e((n={exports:{}}).exports,n),n.exports}catch(t){throw n=0,t}};var H=X((S0,P)=>{"use strict";var K={xl:26,xh:27,yl:28,yh:29,zl:30,zh:31};function k(e){if(e==null)return null;let n=e.trim().toLowerCase();if(K[n]!==void 0)return K[n];let t=/^r(\d{1,2})$/.exec(n);if(!t)return null;let c=parseInt(t[1],10);return c<=31?c:null}function a0(e){let n=[],t=0,c=r=>/[A-Za-z0-9_$.]/.test(r);for(;t<e.length;){let r=e[t];if(r===" "||r==="	"){t++;continue}if(r==="'"){let i,x=t+1;if(e[x]==="\\"){if(i={n:10,r:13,t:9,0:0,"\\":92,"'":39,'"':34}[e[x+1]],i===void 0)throw new Error("bad escape in char literal");x+=2}else i=e.charCodeAt(x),x+=1;if(e[x]!=="'")throw new Error("unterminated char literal");n.push({t:"num",v:i}),t=x+1;continue}if(r==="$"&&/[0-9A-Fa-f]/.test(e[t+1]||"")){let i=t+1,x="";for(;i<e.length&&/[0-9A-Fa-f]/.test(e[i]);)x+=e[i++];n.push({t:"num",v:parseInt(x,16)}),t=i;continue}if(/[0-9]/.test(r)){let i=t,x="";for(;i<e.length&&/[0-9A-Fa-fxXbB_]/.test(e[i]);)x+=e[i++];x=x.replace(/_/g,"");let l;if(/^0[xX]/.test(x))l=parseInt(x,16);else if(/^0[bB][01]+$/.test(x))l=parseInt(x.slice(2),2);else if(/^[0-9]+$/.test(x))l=parseInt(x,10);else throw new Error("bad number: "+x);n.push({t:"num",v:l}),t=i;continue}if(/[A-Za-z_.]/.test(r)){let i=t,x="";for(;i<e.length&&c(e[i]);)x+=e[i++];n.push({t:"id",v:x}),t=i;continue}if(r==="<"&&e[t+1]==="<"){n.push({t:"op",v:"<<"}),t+=2;continue}if(r===">"&&e[t+1]===">"){n.push({t:"op",v:">>"}),t+=2;continue}if("+-*/%&|^~()".includes(r)){n.push({t:"op",v:r}),t++;continue}throw new Error("unexpected character '"+r+"' in expression")}return n}function F0(e,n,t){let c=a0(e),r=0,i=()=>c[r],x=()=>c[r++];function l(){let s=x();if(!s)throw new Error("unexpected end of expression");if(s.t==="num")return s.v;if(s.t==="op"&&s.v==="("){let F=u(),f=x();if(!f||f.v!==")")throw new Error("missing ')'");return F}if(s.t==="op"&&s.v==="-")return-l();if(s.t==="op"&&s.v==="~")return~l();if(s.t==="op"&&s.v==="+")return l();if(s.t==="id"){let F=s.v,f=F.toLowerCase();if((f==="lo8"||f==="low"||f==="hi8"||f==="high"||f==="byte3"||f==="hh8")&&i()&&i().v==="("){x();let g=u(),B=x();if(!B||B.v!==")")throw new Error("missing ')' after "+F);return f==="lo8"||f==="low"?g&255:f==="hi8"||f==="high"?g>>8&255:g>>16&255}if(F===".")return t;if(n.has(F))return n.get(F);throw new Error("undefined symbol '"+F+"'")}throw new Error("unexpected token in expression")}function h(){let s=l();for(;i()&&i().t==="op"&&["*","/","%"].includes(i().v);){let F=x().v,f=l();F==="*"?s*=f:F==="/"?s=Math.trunc(s/f):s%=f}return s}function v(){let s=h();for(;i()&&i().t==="op"&&["+","-"].includes(i().v);){let F=x().v,f=h();s=F==="+"?s+f:s-f}return s}function a(){let s=v();for(;i()&&i().t==="op"&&["<<",">>"].includes(i().v);){let F=x().v,f=v();s=F==="<<"?s<<f:s>>f}return s}function b(){let s=a();for(;i()&&i().v==="&";)x(),s&=a();return s}function w(){let s=b();for(;i()&&i().v==="^";)x(),s^=b();return s}function u(){let s=w();for(;i()&&i().v==="|";)x(),s|=w();return s}let p=u();if(r!==c.length)throw new Error("trailing junk in expression");return p}function z(e){return(e&31)<<4}function V(e){return(e&16)<<5|e&15}function j(e,n,t,c){if(e<n||e>t)throw new Error(c+" out of range ("+n+".."+t+"): "+e);return e}function I(e,n,t){if(e==null)throw new Error(t+": expected a register");if(e<n)throw new Error(t+": register must be r"+n+"..r31");return e}function G(e,n,t,c){if(e&1)throw new Error(c+": branch target must be even (byte address)");let r=(e-n-2)/2,i=1<<t-1;if(r<-i||r>=i)throw new Error(c+": target out of range ("+r+" words)");return r&(1<<t)-1}function d0(e){return(n,t)=>{let c=I(k(n[0]),0,"Rd"),r=I(k(n[1]),0,"Rr");return[e|z(c)|V(r)]}}function m0(e){return(n,t)=>{let c=I(k(n[0]),16,"Rd"),r=t.ev(n[1]);if(r<-128||r>255)throw new Error("K out of range (-128..255): "+r);return r&=255,[e|(r&240)<<4|c-16<<4|r&15]}}function h0(e,n){return t=>{let c=I(k(t[0]),0,"Rd");return[e|z(c)|n]}}function g0(e){return(n,t)=>{let c=n[0];c.includes(":")&&(c=c.split(":")[1]);let r=k(c);if(![24,26,28,30].includes(r))throw new Error("register must be r24/r26/r28/r30 (pair low)");let i=j(t.ev(n[1]),0,63,"K");return[e|(i&48)<<2|(r-24)/2<<4|i&15]}}function b0(e){return(n,t)=>{let c=j(t.ev(n[0]),0,31,"I/O address"),r=j(t.ev(n[1]),0,7,"bit");return[e|c<<3|r]}}function w0(e,n){return(t,c)=>{let r=c.ev(t[0]),i=G(r,c.pcByte,7,"branch");return[(n?61440:62464)|i<<3|e]}}function v0(e){return(n,t)=>{let c=e?n[1]:n[0],r=(e?n[0]:n[1]).replace(/\s+/g,""),i=I(k(c),0,e?"Rr":"Rd"),x=e?512:0,l=r.toUpperCase(),h={Z:[32768,0],"Z+":[36864,1],"-Z":[36864,2],Y:[32776,0],"Y+":[36872,1],"-Y":[36872,2],X:[36876,0],"X+":[36876,1],"-X":[36876,2]};if(h[l]){let[a,b]=h[l];if(l[0]==="X"||l==="-X")return a=36876+(l==="X"?0:l==="X+"?1:2),[a|x|z(i)];if(b!==0&&a<36864)throw new Error("internal");return[a+(a>=36864?b:0)|x|z(i)]}let v=/^([YZ])\+(.+)$/i.exec(r);if(v){let a=j(t.ev(v[2]),0,63,"displacement q"),b=v[1].toUpperCase()==="Y"?8:0;return[32768|x|z(i)|b|(a&32)<<8|(a&24)<<7|a&7]}throw new Error("bad memory operand '"+r+"'")}}P.exports={parseReg:k,evalExpr:F0,encRd:z,encRr:V,chkRange:j,chkReg:I,relOff:G,twoRegOp:d0,immOp:m0,oneRegOp:h0,wideImmOp:g0,ioBitOp:b0,branchOp:w0,ldStXYZ:v0}});var e0=X((Y0,t0)=>{"use strict";var m=H(),{parseReg:E,evalExpr:L,encRd:A,encRr:E0,chkRange:y,chkReg:O,relOff:Q}=m,J={Z:32768,"Z+":36865,"-Z":36866,Y:32776,"Y+":36873,"-Y":36874,X:36876,"X+":36877,"-X":36878};function _(e){return(n,t)=>{let c=e?n[1]:n[0],r=(e?n[0]:n[1]).replace(/\s+/g,""),i=O(E(c),0,e?"Rr":"Rd"),x=e?512:0,l=r.toUpperCase();if(J[l]!==void 0)return[J[l]|x|A(i)];let h=/^([YZ])\+(.+)$/i.exec(r);if(h){let v=y(t.ev(h[2]),0,63,"displacement q"),a=h[1].toUpperCase()==="Y"?8:0;return[32768|x|A(i)|a|(v&32)<<8|(v&24)<<7|v&7]}throw new Error("bad memory operand '"+r+"'")}}var Y={};function o(e,n,t){Y[e]={words:n,enc:t}}o("add",1,m.twoRegOp(3072));o("adc",1,m.twoRegOp(7168));o("sub",1,m.twoRegOp(6144));o("sbc",1,m.twoRegOp(2048));o("and",1,m.twoRegOp(8192));o("or",1,m.twoRegOp(10240));o("eor",1,m.twoRegOp(9216));o("mov",1,m.twoRegOp(11264));o("cp",1,m.twoRegOp(5120));o("cpc",1,m.twoRegOp(1024));o("cpse",1,m.twoRegOp(4096));o("mul",1,m.twoRegOp(39936));function q(e){return n=>{let t=O(E(n[0]),0,"Rd");return[e|A(t)|E0(t)]}}o("tst",1,q(8192));o("clr",1,q(9216));o("lsl",1,q(3072));o("rol",1,q(7168));o("cpi",1,m.immOp(12288));o("sbci",1,m.immOp(16384));o("subi",1,m.immOp(20480));o("ori",1,m.immOp(24576));o("andi",1,m.immOp(28672));o("ldi",1,m.immOp(57344));o("sbr",1,m.immOp(24576));o("cbr",1,(e,n)=>m.immOp(28672)([e[0],String(~n.ev(e[1])&255)],n));o("ser",1,e=>[61199|O(E(e[0]),16,"Rd")-16<<4]);o("com",1,m.oneRegOp(37888,0));o("neg",1,m.oneRegOp(37888,1));o("swap",1,m.oneRegOp(37888,2));o("inc",1,m.oneRegOp(37888,3));o("asr",1,m.oneRegOp(37888,5));o("lsr",1,m.oneRegOp(37888,6));o("ror",1,m.oneRegOp(37888,7));o("dec",1,m.oneRegOp(37888,10));o("push",1,m.oneRegOp(37376,15));o("pop",1,m.oneRegOp(36864,15));o("muls",1,e=>{let n=O(E(e[0]),16,"Rd"),t=O(E(e[1]),16,"Rr");return[512|n-16<<4|t-16]});function M(e){return n=>{let t=E(n[0]),c=E(n[1]);if(t==null||c==null||t<16||t>23||c<16||c>23)throw new Error("registers must be r16..r23");return[e|t-16<<4|c-16]}}o("mulsu",1,M(768));o("fmul",1,M(776));o("fmuls",1,M(896));o("fmulsu",1,M(904));o("movw",1,e=>{let n=e[0].includes(":")?E(e[0].split(":")[1]):E(e[0]),t=e[1].includes(":")?E(e[1].split(":")[1]):E(e[1]);if(n==null||t==null||n&1||t&1)throw new Error("movw needs even registers (pairs)");return[256|n/2<<4|t/2]});o("adiw",1,m.wideImmOp(38400));o("sbiw",1,m.wideImmOp(38656));o("in",1,(e,n)=>{let t=O(E(e[0]),0,"Rd"),c=y(n.ev(e[1]),0,63,"I/O address");return[45056|(c&48)<<5|A(t)|c&15]});o("out",1,(e,n)=>{let t=y(n.ev(e[0]),0,63,"I/O address"),c=O(E(e[1]),0,"Rr");return[47104|(t&48)<<5|A(c)|t&15]});o("sbi",1,m.ioBitOp(39424));o("cbi",1,m.ioBitOp(38912));o("sbic",1,m.ioBitOp(39168));o("sbis",1,m.ioBitOp(39680));function $(e){return(n,t)=>{let c=O(E(n[0]),0,"Rr"),r=y(t.ev(n[1]),0,7,"bit");return[e|A(c)|r]}}o("sbrc",1,$(64512));o("sbrs",1,$(65024));o("bst",1,$(64e3));o("bld",1,$(63488));o("bset",1,(e,n)=>[37896|y(n.ev(e[0]),0,7,"flag")<<4]);o("bclr",1,(e,n)=>[38024|y(n.ev(e[0]),0,7,"flag")<<4]);var C0={c:0,z:1,n:2,v:3,s:4,h:5,t:6,i:7};for(let[e,n]of Object.entries(C0))o("se"+e,1,()=>[37896|n<<4]),o("cl"+e,1,()=>[38024|n<<4]);o("rjmp",1,(e,n)=>[49152|Q(n.ev(e[0]),n.pcByte,12,"rjmp")&4095]);o("rcall",1,(e,n)=>[53248|Q(n.ev(e[0]),n.pcByte,12,"rcall")&4095]);o("brbs",1,(e,n)=>m.branchOp(y(n.ev(e[0]),0,7,"flag"),!0)([e[1]],n));o("brbc",1,(e,n)=>m.branchOp(y(n.ev(e[0]),0,7,"flag"),!1)([e[1]],n));var R0={breq:[1,1],brne:[1,0],brcs:[0,1],brlo:[0,1],brcc:[0,0],brsh:[0,0],brmi:[2,1],brpl:[2,0],brvs:[3,1],brvc:[3,0],brlt:[4,1],brge:[4,0],brhs:[5,1],brhc:[5,0],brts:[6,1],brtc:[6,0],brie:[7,1],brid:[7,0]};for(let[e,[n,t]]of Object.entries(R0))o(e,1,m.branchOp(n,!!t));function W(e){return(n,t)=>{let c=t.ev(n[0]);if(c&1)throw new Error("target must be even byte address");let r=c>>1;return y(r,0,4194303,"target"),[e|(r>>17&31)<<4|r>>16&1,r&65535]}}o("jmp",2,W(37900));o("call",2,W(37902));o("lds",2,(e,n)=>{let t=O(E(e[0]),0,"Rd");return[36864|A(t),y(n.ev(e[1]),0,65535,"address")]});o("sts",2,(e,n)=>{let t=O(E(e[1]),0,"Rr");return[37376|A(t),y(n.ev(e[0]),0,65535,"address")]});o("ld",1,_(!1));o("st",1,_(!0));o("ldd",1,_(!1));o("std",1,_(!0));o("lpm",1,e=>{if(e.length===0)return[38344];let n=O(E(e[0]),0,"Rd"),t=e[1].replace(/\s+/g,"").toUpperCase();if(t==="Z")return[36868|A(n)];if(t==="Z+")return[36869|A(n)];throw new Error("lpm needs Z or Z+")});o("spm",1,()=>[38376]);o("ijmp",1,()=>[37897]);o("icall",1,()=>[38153]);o("ret",1,()=>[38152]);o("reti",1,()=>[38168]);o("nop",1,()=>[0]);o("sleep",1,()=>[38280]);o("wdr",1,()=>[38312]);o("break",1,()=>[38296]);function O0(e){let n="",t=0,c=!1,r=!1;for(;t<e.length;){let i=e[t];if(c){n+=i,i==="\\"?n+=e[++t]||"":i==="'"&&(c=!1),t++;continue}if(r){n+=i,i==="\\"?n+=e[++t]||"":i==='"'&&(r=!1),t++;continue}if(i==="'"){c=!0,n+=i,t++;continue}if(i==='"'){r=!0,n+=i,t++;continue}if(i===";"||i==="/"&&e[t+1]==="/")break;if(i==="/"&&e[t+1]==="*"){let x=e.indexOf("*/",t+2);if(x<0)break;t=x+2;continue}n+=i,t++}return n}function S(e){let n=[],t="",c=0,r=!1,i=!1;for(let x=0;x<e.length;x++){let l=e[x];if(r){t+=l,l==="\\"?t+=e[++x]||"":l==="'"&&(r=!1);continue}if(i){t+=l,l==="\\"?t+=e[++x]||"":l==='"'&&(i=!1);continue}if(l==="'"){r=!0,t+=l;continue}if(l==='"'){i=!0,t+=l;continue}if(l==="("&&c++,l===")"&&c--,l===","&&c===0){n.push(t.trim()),t="";continue}t+=l}return t.trim()!==""&&n.push(t.trim()),n}function D(e){let n=/^"((?:[^"\\]|\\.)*)"$/.exec(e.trim());if(!n)return null;let t={n:`
+`,r:"\r",t:"	",0:"\0","\\":"\\",'"':'"',"'":"'"};return n[1].replace(/\\(.)/g,(c,r)=>t[r]!==void 0?t[r]:r)}function y0(e){let n=e.split(/\r?\n/),t=new Map,c=[],r=new Set([".text",".section",".global",".globl",".balign",".align",".cseg",".device",".list",".nolist",".end"]);function i(u){let p=O0(u).trim(),s={labels:[],mnem:null,ops:[],directive:null,dops:null},F;for(;F=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*:/.exec(p);)s.labels.push(F[1]),p=p.slice(F[0].length).trim();if(p==="")return s;if(p[0]==="."){let g=p.search(/\s/);return s.directive=(g<0?p:p.slice(0,g)).toLowerCase(),s.dops=g<0?"":p.slice(g+1).trim(),s}let f=p.search(/[\s]/);return s.mnem=(f<0?p:p.slice(0,f)).toLowerCase(),s.ops=f<0?[]:S(p.slice(f+1)),s}function x(u,p,s){if(u===".org")return{org:s(p)};if(u===".db"||u===".byte"||u===".ascii"||u===".asciz"||u===".string"){let F=0;for(let f of S(p)){let g=D(f);F+=g!==null?g.length:1}return(u===".asciz"||u===".string")&&(F+=0),{bytes:F}}return u===".dw"||u===".word"?{bytes:S(p).length*2}:null}let l=0,h=[];for(let u=0;u<n.length;u++){let p;try{p=i(n[u])}catch(s){c.push({line:u+1,msg:s.message});continue}p.srcLine=u+1,p.raw=n[u];for(let s of p.labels)t.has(s)&&c.push({line:u+1,msg:"duplicate label '"+s+"'"}),t.set(s,l);if(p.directive){let s=p.directive;if(s===".equ"||s===".set"){let F=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*[=,]\s*(.+)$/.exec(p.dops);if(!F)c.push({line:u+1,msg:s+" needs NAME = value"});else try{t.set(F[1],L(F[2],t,l))}catch(f){c.push({line:u+1,msg:f.message})}h.push(p);continue}if(r.has(s)){h.push(p);continue}if(s===".org"){try{l=L(p.dops,t,l),l&1&&l++}catch(F){c.push({line:u+1,msg:F.message})}p.orgByte=l,h.push(p);continue}if(s===".db"||s===".byte"||s===".ascii"||s===".asciz"||s===".string"||s===".dw"||s===".word"){let F=0;try{for(let f of S(p.dops)){let g=D(f);g!==null?F+=g.length+(s===".asciz"||s===".string"?1:0):F+=s===".dw"||s===".word"?2:1}}catch(f){c.push({line:u+1,msg:f.message})}p.dataBytes=F,p.pcByte=l,l+=F,l&1&&l++,h.push(p);continue}c.push({line:u+1,msg:"unknown directive "+s}),h.push(p);continue}if(p.mnem){let s=Y[p.mnem];if(!s){c.push({line:u+1,msg:"unknown instruction '"+p.mnem+"'"}),h.push(p);continue}p.pcByte=l,l+=2*s.words,h.push(p);continue}h.push(p)}let v=32768,a=new Uint16Array(v/2).fill(65535),b=[],w=0;for(let u of h){if(u.directive){let s=u.directive;if(u.dataBytes!==void 0){let F=[];try{for(let g of S(u.dops)){let B=D(g);if(B!==null){for(let Z of B)F.push(Z.charCodeAt(0)&255);(s===".asciz"||s===".string")&&F.push(0)}else if(s===".dw"||s===".word"){let Z=L(g,t,u.pcByte)&65535;F.push(Z&255,Z>>8)}else F.push(L(g,t,u.pcByte)&255)}}catch(g){c.push({line:u.srcLine,msg:g.message});continue}F.length&1&&F.push(0);let f=[];for(let g=0;g<F.length;g+=2)f.push(F[g]|F[g+1]<<8);f.forEach((g,B)=>{a[(u.pcByte>>1)+B]=g}),w=Math.max(w,(u.pcByte>>1)+f.length),b.push({addr:u.pcByte,words:f,src:u.raw,line:u.srcLine})}continue}if(!u.mnem||!Y[u.mnem]||u.pcByte===void 0)continue;let p={pcByte:u.pcByte,ev:s=>L(s,t,u.pcByte+2)};try{let s=Y[u.mnem].enc(u.ops,p);s.forEach((F,f)=>{a[(u.pcByte>>1)+f]=F&65535}),w=Math.max(w,(u.pcByte>>1)+s.length),b.push({addr:u.pcByte,words:s,src:u.raw,line:u.srcLine})}catch(s){c.push({line:u.srcLine,msg:s.message})}}return{flash:a,words:a.slice(0,Math.max(w,1)),listing:b,errors:c,symbols:t}}t0.exports={assemble:y0,TABLE:Y}});var n0=X((_0,T)=>{"use strict";function A0(e,n){let{CPU:t,avrInstruction:c,AVRIOPort:r,portBConfig:i,portCConfig:x,portDConfig:l,AVRTimer:h,timer0Config:v,timer1Config:a,timer2Config:b,AVRUSART:w,usart0Config:u,AVRADC:p,adcConfig:s}=e,F=new Uint16Array(32768/2);F.set(n.subarray?n.subarray(0,F.length):n.slice(0,F.length));let f=new t(F),g=new r(f,i),B=new r(f,x),Z=new r(f,l),o0=new h(f,v),c0=new h(f,a),x0=new h(f,b),u0=new w(f,u,16e6),f0=new p(f,s);return{cpu:f,portB:g,portC:B,portD:Z,usart:u0,adc:f0,timer0:o0,timer1:c0,timer2:x0,step(){c(f),f.tick()},run(l0){let p0=f.cycles+l0;for(;f.cycles<p0;)c(f),f.tick()}}}typeof T<"u"&&(T.exports={createRunner:A0})});var i0=X((q0,N)=>{"use strict";function d(e){return e>>4&31}function R(e){return e>>5&16|e&15}function B0(e){return e>>4&240|e&15}function U(e,n){let t=1<<n-1;return(e&t-1)-(e&t)}function C(e,n){return"0x"+(e>>>0).toString(16).padStart(n||2,"0")}function r0(e,n){let t=e[n],c=e[n+1]|0,r=a=>"r"+a,i=a=>({text:a,size:1}),x=a=>({text:a,size:2}),l={0:"nop",38152:"ret",38168:"reti",37897:"ijmp",38153:"icall",38280:"sleep",38296:"break",38312:"wdr",38344:"lpm",38376:"spm"};if(l[t])return i(l[t]);if((t&65295)===37896){let a=t>>4&7,b=!(t&128);return i((b?"se":"cl")+["c","z","n","v","s","h","t","i"][a])}let h=t>>12;if(h===0){if((t&65280)===256)return i("movw	"+r((t>>4&15)*2)+", "+r((t&15)*2));if((t&65280)===512)return i("muls	"+r(16+(t>>4&15))+", "+r(16+(t&15)));if((t&65416)===768)return i("mulsu	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===776)return i("fmul	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===896)return i("fmuls	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&65416)===904)return i("fmulsu	"+r(16+(t>>4&7))+", "+r(16+(t&7)));if((t&64512)===1024)return i("cpc	"+r(d(t))+", "+r(R(t)));if((t&64512)===2048)return i("sbc	"+r(d(t))+", "+r(R(t)));if((t&64512)===3072)return d(t)===R(t)?i("lsl	"+r(d(t))):i("add	"+r(d(t))+", "+r(R(t)))}if(h===1){if((t&64512)===4096)return i("cpse	"+r(d(t))+", "+r(R(t)));if((t&64512)===5120)return i("cp	"+r(d(t))+", "+r(R(t)));if((t&64512)===6144)return i("sub	"+r(d(t))+", "+r(R(t)));if((t&64512)===7168)return d(t)===R(t)?i("rol	"+r(d(t))):i("adc	"+r(d(t))+", "+r(R(t)))}if(h===2){if((t&64512)===8192)return d(t)===R(t)?i("tst	"+r(d(t))):i("and	"+r(d(t))+", "+r(R(t)));if((t&64512)===9216)return d(t)===R(t)?i("clr	"+r(d(t))):i("eor	"+r(d(t))+", "+r(R(t)));if((t&64512)===10240)return i("or	"+r(d(t))+", "+r(R(t)));if((t&64512)===11264)return i("mov	"+r(d(t))+", "+r(R(t)))}let v={3:"cpi",4:"sbci",5:"subi",6:"ori",7:"andi",14:"ldi"};if(v[h])return i(v[h]+"	"+r(16+(t>>4&15))+", "+C(B0(t)));if(h===8||h===10){let a=t>>8&32|t>>7&24|t&7,b=t&8?"Y":"Z",w=(t&512)!==0,u=a===0?b:b+"+"+a,p=a===0?w?"st":"ld":w?"std":"ldd";return i(w?p+"	"+u+", "+r(d(t)):p+"	"+r(d(t))+", "+u)}if(h===9){if((t&65039)===36864)return x("lds	"+r(d(t))+", "+C(c,4));if((t&65039)===37376)return x("sts	"+C(c,4)+", "+r(d(t)));let a={1:"Z+",2:"-Z",9:"Y+",10:"-Y",12:"X",13:"X+",14:"-X"};if((t&65024)===36864&&a[t&15])return i("ld	"+r(d(t))+", "+a[t&15]);if((t&65024)===37376&&a[t&15])return i("st	"+a[t&15]+", "+r(d(t)));if((t&65039)===36868)return i("lpm	"+r(d(t))+", Z");if((t&65039)===36869)return i("lpm	"+r(d(t))+", Z+");if((t&65039)===36879)return i("pop	"+r(d(t)));if((t&65039)===37391)return i("push	"+r(d(t)));if((t&65039)===37888)return i("com	"+r(d(t)));if((t&65039)===37889)return i("neg	"+r(d(t)));if((t&65039)===37890)return i("swap	"+r(d(t)));if((t&65039)===37891)return i("inc	"+r(d(t)));if((t&65039)===37893)return i("asr	"+r(d(t)));if((t&65039)===37894)return i("lsr	"+r(d(t)));if((t&65039)===37895)return i("ror	"+r(d(t)));if((t&65039)===37898)return i("dec	"+r(d(t)));if((t&65038)===37900){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("jmp	"+C(2*b,2))}if((t&65038)===37902){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("call	"+C(2*b,2))}if((t&65280)===38400)return i("adiw	"+r(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38656)return i("sbiw	"+r(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38912)return i("cbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39424)return i("sbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39168)return i("sbic	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39680)return i("sbis	"+C(t>>3&31)+", "+(t&7));if((t&64512)===39936)return i("mul	"+r(d(t))+", "+r(R(t)))}if(h===11){let a=t>>5&48|t&15;return t&2048?i("out	"+C(a)+", "+r(d(t))):i("in	"+r(d(t))+", "+C(a))}if(h===12){let a=U(t&4095,12);return i("rjmp	."+(a>=0?"+":"")+2*a+"		; "+C(2*n+2+2*a,2))}if(h===13){let a=U(t&4095,12);return i("rcall	."+(a>=0?"+":"")+2*a+"		; "+C(2*n+2+2*a,2))}if(h===15){if((t&63488)===61440||(t&63488)===62464){let a=(t&1024)===0,b=t&7,w=U(t>>3&127,7),s=(a?["brcs","breq","brmi","brvs","brlt","brhs","brts","brie"]:["brcc","brne","brpl","brvc","brge","brhc","brtc","brid"])[b];return i(s+"	."+(w>=0?"+":"")+2*w+"		; "+C(2*n+2+2*w,2))}if((t&65032)===63488)return i("bld	"+r(d(t))+", "+(t&7));if((t&65032)===64e3)return i("bst	"+r(d(t))+", "+(t&7));if((t&65032)===64512)return i("sbrc	"+r(d(t))+", "+(t&7));if((t&65032)===65024)return i("sbrs	"+r(d(t))+", "+(t&7))}return i(".dw	"+C(t,4))}function k0(e){let n=[];for(let t=0;t<e.length;){let{text:c,size:r}=r0(e,t),i=[];for(let x=0;x<r;x++)i.push(e[t+x]|0);n.push({addr:2*t,words:i,src:"    "+c.replace(/\t/g," "),line:0}),t+=r}return n}typeof N<"u"&&(N.exports={disassemble:k0,disasmOne:r0})});var X0=X((M0,s0)=>{var{assemble:Z0}=e0(),{createRunner:z0}=n0(),{disassemble:I0}=i0();s0.exports={assemble:Z0,createRunner:z0,disassemble:I0}});return X0();})();
 
 ;window.AVRLAB_CORE = AVRLAB_CORE;
 </script>
@@ -355,6 +372,90 @@ wait:
     out  PORTB, r18
     rjmp loop
 `,
+"pin mirror": `; Diagnostics: pin 2 is an INPUT; the LED mirrors it.
+; In the I/O panel, click pin 2 to toggle it between 0 and 1
+; while the program runs, and watch the LED follow.
+
+.equ DDRB,  0x04
+.equ PORTB, 0x05
+.equ PIND,  0x09
+
+start:
+    sbi  DDRB, 5           ; LED pin as output (pin 2 stays input)
+loop:
+    sbic PIND, 2           ; skip next if pin 2 reads 0
+    rjmp on
+    cbi  PORTB, 5
+    rjmp loop
+on:
+    sbi  PORTB, 5
+    rjmp loop
+`,
+"adc to serial": `; Diagnostics: reads analog channel A0 and prints the 10-bit
+; value as 4 hex digits, twice a second. Change the A0 field in
+; the I/O panel (0-1023) while running and watch the numbers.
+
+.equ ADMUX,  0x7C
+.equ ADCSRA, 0x7A
+.equ ADCL,   0x78
+.equ ADCH,   0x79
+.equ UCSR0B, 0xC1
+.equ UDR0,   0xC6
+
+start:
+    ldi  r16, 0x08         ; TXEN0
+    sts  UCSR0B, r16
+    ldi  r16, 0x40         ; AVcc reference, channel A0
+    sts  ADMUX, r16
+
+measure:
+    ldi  r16, 0xC7         ; ADEN | ADSC | prescaler 128
+    sts  ADCSRA, r16
+wait:
+    lds  r17, ADCSRA
+    sbrc r17, 6            ; ADSC clears when done
+    rjmp wait
+    lds  r24, ADCL         ; low byte first (hardware rule)
+    lds  r25, ADCH
+
+    mov  r20, r25          ; print 4 hex digits: hi nibble first
+    swap r20
+    rcall hexn
+    mov  r20, r25
+    rcall hexn
+    mov  r20, r24
+    swap r20
+    rcall hexn
+    mov  r20, r24
+    rcall hexn
+    ldi  r20, 10
+    sts  UDR0, r20
+
+    rcall delay            ; ~0.5 s between readings
+    rjmp measure
+
+hexn:                      ; print low nibble of r20 as hex
+    andi r20, 0x0F
+    subi r20, -48          ; '0'
+    cpi  r20, 58
+    brlo hexok
+    subi r20, -7           ; 'A'-'9'-1
+hexok:
+    sts  UDR0, r20
+    ret
+
+delay:
+    ldi  r23, 31
+d0: ldi  r22, 250
+d1: ldi  r21, 250
+d2: dec  r21
+    brne d2
+    dec  r22
+    brne d1
+    dec  r23
+    brne d0
+    ret
+`,
 "serial echo": `; Talk to the chip: every byte you send arrives in UDR0 and is
 ; echoed back. Type in the box under the serial monitor, press Enter,
 ; then watch your text come back from the AVR.
@@ -408,6 +509,35 @@ function updateSrcBar() {
 let running = false, rafId = 0, lastPanel = 0;
 let serialBuf = "", ledState = false;
 const bps = new Set();      /* breakpoint byte addresses */
+/* digital pins 0-13: [portKey, bit]; injected levels persist across resets */
+const PIN_MAP = [['portD',0],['portD',1],['portD',2],['portD',3],['portD',4],['portD',5],['portD',6],['portD',7],
+                 ['portB',0],['portB',1],['portB',2],['portB',3],['portB',4],['portB',5]];
+const DDR_ADDR  = { portD: 0x2A, portB: 0x24 };
+const PORT_ADDR = { portD: 0x2B, portB: 0x25 };
+const injected = new Array(14).fill(false);
+const analogRaw = new Array(6).fill(0);
+const dpinEls = [], apinEls = [];
+function setPinInput(pin, level) {
+  injected[pin] = !!level;
+  if (runner) { const [pk, bit] = PIN_MAP[pin]; runner[pk].setPin(bit, injected[pin]); }
+}
+function setAnalog(ch, raw) {
+  analogRaw[ch] = Math.max(0, Math.min(1023, raw|0));
+  if (runner) runner.adc.channelValues[ch] = analogRaw[ch] * 5 / 1023;
+}
+function refreshPins() {
+  if (!runner || !dpinEls.length) return;
+  const d = runner.cpu.data;
+  for (let p = 0; p < 14; p++) {
+    const [pk, bit] = PIN_MAP[p];
+    const isOut = (d[DDR_ADDR[pk]] >> bit) & 1;
+    const level = isOut ? (d[PORT_ADDR[pk]] >> bit) & 1 : (injected[p] ? 1 : 0);
+    const w = dpinEls[p];
+    w.root.className = 'dpin ' + (isOut ? 'out' : 'in') + (level ? ' hi' : '');
+    w.val.textContent = level;
+    w.tag.textContent = isOut ? 'OUT' : 'IN';
+  }
+}
 let txQueue = [];           /* host -> AVR bytes awaiting USART RX */
 let speed = 1.0;
 let regPrev = new Uint8Array(32);
@@ -449,6 +579,9 @@ function makeRunner(words) {
   };
   serialBuf = ""; ledState = false;
   setLed(false);
+  for (let p = 0; p < 14; p++) { const [pk, bit] = PIN_MAP[p]; runner[pk].setPin(bit, injected[p]); }
+  for (let ch = 0; ch < 6; ch++) runner.adc.channelValues[ch] = analogRaw[ch] * 5 / 1023;
+  refreshPins();
   regPrev.fill(0);
   updatePanels(true);
 }
@@ -540,6 +673,7 @@ function updatePanels(showPC) {
   $('spv').textContent = '0x' + sp.toString(16).padStart(4, '0');
   $('cyv').textContent = cpu.cycles.toLocaleString();
   $('tmv').textContent = (cpu.cycles / F_CPU * 1000).toFixed(3) + ' ms';
+  refreshPins();
   /* serial */
   const ser = $('serial');
   if (ser.textContent !== serialBuf) { ser.textContent = serialBuf; ser.scrollTop = ser.scrollHeight; }
@@ -681,7 +815,30 @@ window.addEventListener('DOMContentLoaded', () => {
   };
   $('btnSend').addEventListener('click', sendSerial);
   $('serialIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendSerial(); });
-  window.__sekiz = { bps, tx: (b) => txQueue.push(b) };   /* harness/power-user handle */
+  const dp = $('dpins');
+  for (let p = 0; p < 14; p++) {
+    const el = document.createElement('div');
+    el.className = 'dpin in';
+    const lab = document.createElement('b'); lab.textContent = p;
+    const val = document.createElement('span'); val.textContent = '0';
+    const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'IN';
+    el.appendChild(lab); el.appendChild(val); el.appendChild(tag);
+    el.addEventListener('click', () => {
+      if (el.className.indexOf('out') < 0) { setPinInput(p, !injected[p]); refreshPins(); }
+    });
+    dp.appendChild(el); dpinEls.push({ root: el, val, tag });
+  }
+  const ap = $('apins');
+  for (let ch = 0; ch < 6; ch++) {
+    const wrap = document.createElement('label'); wrap.className = 'apin';
+    const lab = document.createElement('span'); lab.textContent = 'A' + ch;
+    const inp = document.createElement('input');
+    inp.type = 'number'; inp.min = 0; inp.max = 1023; inp.value = 0;
+    inp.addEventListener('change', () => { setAnalog(ch, Number(inp.value)); inp.value = analogRaw[ch]; });
+    wrap.appendChild(lab); wrap.appendChild(inp);
+    ap.appendChild(wrap); apinEls.push(inp);
+  }
+  window.__sekiz = { bps, tx: (b) => txQueue.push(b), setPinInput, setAnalog, runner: () => runner };
   doAssemble();
   updateBadges();
 });
