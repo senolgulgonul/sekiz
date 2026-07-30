@@ -21,6 +21,8 @@ Full suite last passed 2026-07-30 on Sekiz v1.0.2.
 | T6 | t6_cycle_nops.ino | `.rept` directive, cycle exactness | high pulse 1609 cycles (100.56 us) |
 | T7 | t7_asm_constraints.ino | inline-asm register constraints | `255` |
 | T8 | t8_arduino_core.ino | Arduino core: Serial, millis, init | `CORE-OK`, then 1000, 2000, ... |
+| T9 | t9_delay_timing.ino | delay(1000) measured | 15625 1000000 |
+
 
 Two clang-vs-avr-gcc behaviors these tests document (details in the main
 README's "Differences from avr-gcc" section):
