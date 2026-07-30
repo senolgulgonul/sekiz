@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sekiz · 8-bit ATmega328P assembly simulator</title>
+<style>
+:root{
+  --paper:#FBFBF8; --panel:#FFFFFF; --ink:#20262E; --ink-soft:#5A6472;
+  --rule:#D8D6CE; --copper:#B87333; --pcb:#1E5B3F; --pcb-deep:#164430;
+  --chg:#FFF3D6; --cur:#EAF3EC;
+  --mono:ui-monospace,'Cascadia Code','JetBrains Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--paper);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.45}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:10px 16px;border-bottom:2px solid var(--ink)}
+header h1{font-size:17px;font-weight:700;letter-spacing:.5px}
+header h1 b{color:var(--pcb)}
+header .sub{color:var(--ink-soft);font-size:12px}
+header .spacer{flex:1}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tsep{width:1px;height:20px;background:var(--rule)}
+button,select,label.filebtn{font:inherit;font-size:12px;padding:5px 12px;border:1px solid var(--ink);
+  background:var(--panel);color:var(--ink);cursor:pointer;border-radius:2px}
+button:hover,label.filebtn:hover{background:var(--ink);color:var(--paper)}
+button.primary{background:var(--pcb);border-color:var(--pcb);color:#fff}
+button.primary:hover{background:var(--pcb-deep)}
+input[type=file]{display:none}
+.status{padding:4px 16px;font-size:12px;color:var(--ink-soft);border-bottom:1px solid var(--rule);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:23px}
+.status.err{color:#A32014;background:#FBEeea}
+.srcbar{padding:6px 12px;font-size:11.5px;font-family:system-ui,sans-serif;background:#FFF4E2;
+  color:#7A4E12;border-bottom:1px solid var(--rule)}
+.srcbar b{color:#1E5B3F}
+main{display:grid;grid-template-columns:minmax(340px,1.1fr) minmax(300px,1fr) minmax(320px,1fr);
+  gap:0;height:calc(100vh - 66px)}
+section{border-right:1px solid var(--rule);display:flex;flex-direction:column;min-height:0}
+section:last-child{border-right:none}
+h2{font-family:system-ui,sans-serif;font-size:10.5px;font-weight:600;letter-spacing:1.6px;
+  text-transform:uppercase;color:var(--ink-soft);padding:8px 12px 4px;border-bottom:1px solid var(--rule)}
+h2 .n{color:var(--copper);margin-right:6px}
+#editor{flex:1;width:100%;resize:none;border:none;outline:none;background:var(--panel);
+  color:var(--ink);font:inherit;padding:10px 12px;tab-size:4;min-height:120px}
+.boardwrap{padding:12px;display:flex;justify-content:center;background:var(--panel)}
+#serial{flex:1;min-height:80px;background:var(--panel);color:var(--ink);padding:10px 12px;overflow:auto;
+  white-space:pre-wrap;word-break:break-all;border-top:1px solid var(--rule)}
+.grid8{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
+  border-bottom:1px solid var(--rule)}
+.reg{background:var(--panel);padding:3px 8px;display:flex;justify-content:space-between}
+.reg span{color:var(--ink-soft)}
+.reg.chg{background:var(--chg)}
+#sreg{display:grid;grid-template-columns:repeat(8,1fr);gap:1px;background:var(--rule);
+  border-bottom:1px solid var(--rule)}
+.sbit{background:var(--panel);text-align:center;padding:4px 0 5px;font-size:13px}
+.sbit em{display:block;font-style:normal;font-family:system-ui,sans-serif;font-size:9.5px;
+  letter-spacing:1px;color:var(--ink-soft);margin-bottom:1px}
+.sbit.on{background:var(--pcb);color:#fff}
+.sbit.on em{color:#CFE6D6}
+.counters{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--rule);
+  border-bottom:1px solid var(--rule)}
+.counters div{background:var(--panel);padding:4px 10px}
+.counters div span{display:block;font-family:system-ui,sans-serif;font-size:9.5px;letter-spacing:1px;
+  text-transform:uppercase;color:var(--ink-soft)}
+#listing{flex:1;overflow:auto;background:var(--panel)}
+.lrow{display:flex;gap:10px;padding:1px 12px;white-space:pre}
+.lrow.cur{background:var(--cur);box-shadow:inset 3px 0 0 var(--pcb)}
+.la{color:var(--copper);min-width:38px}
+.lw{color:var(--ink-soft);min-width:80px}
+.modal{position:fixed;inset:0;background:rgba(32,38,46,.45);display:flex;align-items:center;
+  justify-content:center;z-index:20}
+.modal[hidden]{display:none}
+.modalbox{background:var(--panel);border:2px solid var(--ink);border-radius:3px;max-width:560px;
+  width:calc(100% - 40px);max-height:85vh;overflow:auto;padding:18px 22px;font-family:system-ui,sans-serif;
+  font-size:13px;line-height:1.55}
+.modalbox h3{font-size:16px;margin-bottom:8px}
+.modalbox h3 span{font-weight:400;color:var(--ink-soft);font-size:12px;margin-left:8px}
+.modalbox h4{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--copper);margin:12px 0 3px}
+.modalbox p{margin-bottom:6px}
+.modalbox code{font-family:var(--mono);background:var(--paper);padding:0 4px;border:1px solid var(--rule)}
+.modalbox a{color:var(--pcb)}
+.modalbox button{margin-top:12px}
+@media(max-width:980px){
+  main{grid-template-columns:1fr;height:auto}
+  section{border-right:none;border-bottom:1px solid var(--rule)}
+  #editor{min-height:260px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Seki<b>z</b></h1>
+  <span class="sub">sekiz = eight · 8-bit ATmega328P assembly simulator · runs entirely in this page · no server</span>
+  <span class="spacer"></span>
+  <div class="toolbar">
+    <button id="btnNew" title="Start an empty program">New</button>
+    <label class="filebtn" title="Open an assembly source file">Open .asm<input type="file" id="asmfile" accept=".asm,.s,.S,.txt"></label>
+    <button id="btnSave" title="Download the editor contents">Save .asm</button>
+    <span class="tsep"></span>
+    <select id="examples" title="Load an example program"></select>
+    <button id="btnAsm">Assemble</button>
+    <button id="btnRun" class="primary">Run</button>
+    <button id="btnStep">Step</button>
+    <button id="btnReset">Reset</button>
+    <select id="speed" title="Simulation speed">
+      <option value="1" selected>16 MHz</option>
+      <option value="0.1">1.6 MHz</option>
+      <option value="0.01">160 kHz</option>
+      <option value="0.0001">1.6 kHz</option>
+    </select>
+    <span class="tsep"></span>
+    <label class="filebtn" title="Run a compiled program (e.g. Arduino IDE: Sketch > Export Compiled Binary)">Load .hex<input type="file" id="hexfile" accept=".hex"></label>
+    <button id="btnHelp" title="About Sekiz">Help</button>
+  </div>
+</header>
+<div id="status" class="status">ready</div>
+<main>
+  <section>
+    <h2><span class="n">1</span>Program — AVR assembly (.asm)</h2>
+    <div id="srcbar" class="srcbar" hidden></div>
+    <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+  </section>
+  <section>
+    <h2><span class="n">2</span>Board — pin 13 “L” LED · click the red button to reset</h2>
+    <div class="boardwrap">
+      <svg width="360" height="238" viewBox="0 0 360 238" role="img" aria-label="Simulated microcontroller board with L and ON LEDs">
+        <rect x="4" y="4" width="352" height="230" rx="10" fill="#2B7CB8" stroke="#1E5E8E" stroke-width="3"/>
+        <circle cx="28" cy="22" r="6" fill="#FBFBF8" stroke="#C9A227" stroke-width="2.5"/>
+        <circle cx="340" cy="26" r="6" fill="#FBFBF8" stroke="#C9A227" stroke-width="2.5"/>
+        <circle cx="28" cy="216" r="6" fill="#FBFBF8" stroke="#C9A227" stroke-width="2.5"/>
+        <circle cx="340" cy="196" r="6" fill="#FBFBF8" stroke="#C9A227" stroke-width="2.5"/>
+        <rect x="0" y="60" width="46" height="52" rx="3" fill="#B9BDBD" stroke="#8E9292"/>
+        <rect x="0" y="66" width="38" height="40" fill="#CDD1D1"/>
+        <g id="hwReset" style="cursor:pointer"><rect x="52" y="14" width="34" height="30" rx="3" fill="#C9CDCD" stroke="#8E9292"/><circle cx="69" cy="29" r="8" fill="#C0392B" stroke="#8E2A20" stroke-width="2"/><title>Reset the program</title></g>
+        <rect x="92" y="12" width="108" height="16" rx="2" fill="#15181B"/>
+        <rect x="214" y="12" width="108" height="16" rx="2" fill="#15181B"/>
+        <text transform="rotate(-90)" x="-76" y="102" font-size="7" fill="#FFFFFF">AREF</text>
+        <text transform="rotate(-90)" x="-76" y="115" font-size="7" fill="#FFFFFF">GND</text>
+        <text transform="rotate(-90)" x="-76" y="128" font-size="7" fill="#FFFFFF">13</text>
+        <text transform="rotate(-90)" x="-76" y="141" font-size="7" fill="#FFFFFF">12</text>
+        <text transform="rotate(-90)" x="-76" y="154" font-size="7" fill="#FFFFFF">~11</text>
+        <text transform="rotate(-90)" x="-76" y="167" font-size="7" fill="#FFFFFF">~10</text>
+        <text transform="rotate(-90)" x="-76" y="180" font-size="7" fill="#FFFFFF">~9</text>
+        <text transform="rotate(-90)" x="-76" y="193" font-size="7" fill="#FFFFFF">8</text>
+        <text transform="rotate(-90)" x="-76" y="224" font-size="7" fill="#FFFFFF">7</text>
+        <text transform="rotate(-90)" x="-76" y="237" font-size="7" fill="#FFFFFF">~6</text>
+        <text transform="rotate(-90)" x="-76" y="250" font-size="7" fill="#FFFFFF">~5</text>
+        <text transform="rotate(-90)" x="-76" y="263" font-size="7" fill="#FFFFFF">4</text>
+        <text transform="rotate(-90)" x="-76" y="276" font-size="7" fill="#FFFFFF">~3</text>
+        <text transform="rotate(-90)" x="-76" y="289" font-size="7" fill="#FFFFFF">2</text>
+        <text transform="rotate(-90)" x="-76" y="302" font-size="7" fill="#FFFFFF">TX1</text>
+        <text transform="rotate(-90)" x="-76" y="315" font-size="7" fill="#FFFFFF">RX0</text>
+        <line x1="96" y1="82" x2="316" y2="82" stroke="#FFFFFF" stroke-width="1"/>
+        <text x="220" y="93" font-size="8" fill="#FFFFFF" font-weight="bold" letter-spacing="1">DIGITAL (PWM~)</text>
+        <rect id="ledL" x="12" y="130" width="20" height="9" rx="2" fill="#4A211C" stroke="#173F5F"/>
+        <text x="38" y="138" font-size="9" fill="#FFFFFF" font-weight="bold">L</text>
+        <rect x="12" y="152" width="20" height="9" rx="2" fill="#7CCF6E" stroke="#173F5F"/>
+        <text x="38" y="160" font-size="9" fill="#FFFFFF" font-weight="bold">ON</text>
+        <rect x="114" y="210" width="95" height="16" rx="2" fill="#15181B"/>
+        <rect x="227" y="210" width="82" height="16" rx="2" fill="#15181B"/>
+        <text transform="rotate(-90)" x="-206" y="124" font-size="7" fill="#FFFFFF">IOREF</text>
+        <text transform="rotate(-90)" x="-206" y="137" font-size="7" fill="#FFFFFF">RESET</text>
+        <text transform="rotate(-90)" x="-206" y="150" font-size="7" fill="#FFFFFF">3.3V</text>
+        <text transform="rotate(-90)" x="-206" y="163" font-size="7" fill="#FFFFFF">5V</text>
+        <text transform="rotate(-90)" x="-206" y="176" font-size="7" fill="#FFFFFF">GND</text>
+        <text transform="rotate(-90)" x="-206" y="189" font-size="7" fill="#FFFFFF">GND</text>
+        <text transform="rotate(-90)" x="-206" y="202" font-size="7" fill="#FFFFFF">Vin</text>
+        <text transform="rotate(-90)" x="-206" y="237" font-size="7" fill="#FFFFFF">A0</text>
+        <text transform="rotate(-90)" x="-206" y="250" font-size="7" fill="#FFFFFF">A1</text>
+        <text transform="rotate(-90)" x="-206" y="263" font-size="7" fill="#FFFFFF">A2</text>
+        <text transform="rotate(-90)" x="-206" y="276" font-size="7" fill="#FFFFFF">A3</text>
+        <text transform="rotate(-90)" x="-206" y="289" font-size="7" fill="#FFFFFF">A4</text>
+        <text transform="rotate(-90)" x="-206" y="302" font-size="7" fill="#FFFFFF">A5</text>
+        <text x="132" y="164" font-size="8" fill="#FFFFFF" font-weight="bold" letter-spacing="1">POWER</text>
+        <line x1="118" y1="168" x2="201" y2="168" stroke="#FFFFFF" stroke-width="1"/>
+        <text x="233" y="164" font-size="8" fill="#FFFFFF" font-weight="bold" letter-spacing="1">ANALOG IN</text>
+        <line x1="231" y1="168" x2="301" y2="168" stroke="#FFFFFF" stroke-width="1"/>
+        </svg>
+    </div>
+    <h2><span class="n">3</span>Serial monitor — USART0 · TX</h2>
+    <pre id="serial"></pre>
+  </section>
+  <section>
+    <h2><span class="n">4</span>Registers R0–R31</h2>
+    <div id="regs" class="grid8"></div>
+    <h2><span class="n">5</span>SREG</h2>
+    <div id="sreg"></div>
+    <div class="counters">
+      <div><span>PC</span><em id="pcv">0x0000</em></div>
+      <div><span>SP</span><em id="spv">0x0000</em></div>
+      <div><span>Cycles</span><em id="cyv">0</em></div>
+      <div><span>Simulated time</span><em id="tmv">0.000 ms</em></div>
+    </div>
+    <h2><span class="n">6</span>Machine code</h2>
+    <div id="listing"></div>
+  </section>
+</main>
+<div id="helpModal" class="modal" hidden>
+  <div class="modalbox">
+    <h3>Sekiz <span>8-bit ATmega328P assembly simulator</span></h3>
+    <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file, offline-capable 8-bit AVR assembly simulator for teaching.
+       Everything — assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.</p>
+    <h4>Quick start</h4>
+    <p>Write AVR assembly in panel 1 (or pick an example), press <b>Assemble</b>, then <b>Run</b>.
+       <b>Step</b> executes one instruction and follows the program counter in the machine-code listing.
+       The red button on the board resets the running program.</p>
+    <h4>Running C/C++ sketches (.ino)</h4>
+    <p>Compile in the Arduino IDE, choose <i>Sketch → Export Compiled Binary</i>, then use <b>Load .hex</b> here.
+       The machine code runs directly and its disassembly appears in panel 6.</p>
+    <h4>Conventions</h4>
+    <p>GAS-flavored syntax: labels are byte addresses (avr-gcc convention), <code>lo8()/hi8()</code>,
+       numbers as <code>123, 0x7B, 0b1111011, 'A'</code>. Complete ATmega328P instruction set.
+       Assembler output validated instruction-by-instruction against avr-gcc; disassembler against avr-objdump.</p>
+    <h4>Credits &amp; license</h4>
+    <p>CPU/peripheral engine: <a href="https://github.com/wokwi/avr8js" target="_blank" rel="noopener">AVR8js</a>
+       © Uri Shaked, MIT license. Assembler, disassembler, board and interface © 2026 Senol Gulgonul.</p>
+    <button id="btnHelpClose">Close</button>
+  </div>
+</div>
+<script>
+/* ===== AVR8js (https://github.com/wokwi/avr8js) =====
+ * The MIT License (MIT) - Copyright (c) 2019-2025 Uri Shaked
+ * Bundled unmodified, minified. */
+"use strict";var AVR8=(()=>{var S=(e,t)=>()=>{try{return t||e((t={exports:{}}).exports,t),t.exports}catch(i){throw t=0,i}};var ut=S(gt=>{"use strict";Object.defineProperty(gt,"__esModule",{value:!0});gt.avrInterrupt=Xe;function Xe(e,t){let i=e.dataView.getUint16(93,!0);e.data[i]=e.pc&255,e.data[i-1]=e.pc>>8&255,e.pc22Bits&&(e.data[i-2]=e.pc>>16&255),e.dataView.setUint16(93,i-(e.pc22Bits?3:2),!0),e.data[95]&=127,e.cycles+=2,e.pc=t}});var Kt=S(rt=>{"use strict";Object.defineProperty(rt,"__esModule",{value:!0});rt.CPU=void 0;var Ge=ut(),ze=256,Je=128,Rt=class{constructor(t,i=8192){this.progMem=t,this.sramBytes=i,this.data=new Uint8Array(this.sramBytes+ze),this.data16=new Uint16Array(this.data.buffer),this.dataView=new DataView(this.data.buffer),this.progBytes=new Uint8Array(this.progMem.buffer),this.readHooks=[],this.writeHooks=[],this.pendingInterrupts=new Array(Je),this.nextClockEvent=null,this.clockEventPool=[],this.pc22Bits=this.progBytes.length>131072,this.gpioPorts=new Set,this.gpioByPort=[],this.onWatchdogReset=()=>{},this.pc=0,this.cycles=0,this.nextInterrupt=-1,this.maxInterrupt=0,this.reset()}reset(){this.SP=this.data.length-1,this.pc=0,this.pendingInterrupts.fill(null),this.nextInterrupt=-1,this.nextClockEvent=null}readData(t){return t>=32&&this.readHooks[t]?this.readHooks[t](t):this.data[t]}writeData(t,i,s=255){let r=this.writeHooks[t];r&&r(i,this.data[t],t,s)||(this.data[t]=i)}get SP(){return this.dataView.getUint16(93,!0)}set SP(t){this.dataView.setUint16(93,t,!0)}get SREG(){return this.data[95]}get interruptsEnabled(){return!!(this.SREG&128)}setInterruptFlag(t){let{flagRegister:i,flagMask:s,enableRegister:r,enableMask:n}=t;t.inverseFlag?this.data[i]&=~s:this.data[i]|=s,this.data[r]&n&&this.queueInterrupt(t)}updateInterruptEnable(t,i){let{enableMask:s,flagRegister:r,flagMask:n,inverseFlag:a}=t;if(i&s){let c=this.data[r]&n;(a?!c:c)&&this.queueInterrupt(t)}else this.clearInterrupt(t,!1)}queueInterrupt(t){let{address:i}=t;this.pendingInterrupts[i]=t,(this.nextInterrupt===-1||this.nextInterrupt>i)&&(this.nextInterrupt=i),i>this.maxInterrupt&&(this.maxInterrupt=i)}clearInterrupt({address:t,flagRegister:i,flagMask:s},r=!0){r&&(this.data[i]&=~s);let{pendingInterrupts:n,maxInterrupt:a}=this;if(n[t]&&(n[t]=null,this.nextInterrupt===t)){this.nextInterrupt=-1;for(let c=t+1;c<=a;c++)if(n[c]){this.nextInterrupt=c;break}}}clearInterruptByFlag(t,i){let{flagRegister:s,flagMask:r}=t;i&r&&(this.data[s]&=~r,this.clearInterrupt(t))}addClockEvent(t,i){let{clockEventPool:s}=this;i=this.cycles+Math.max(1,i);let r=s.pop(),n=r??{cycles:i,callback:t,next:null};n.cycles=i,n.callback=t;let{nextClockEvent:a}=this,c=null;for(;a&&a.cycles<i;)c=a,a=a.next;return c?(c.next=n,n.next=a):(this.nextClockEvent=n,n.next=a),t}updateClockEvent(t,i){return this.clearClockEvent(t)?(this.addClockEvent(t,i),!0):!1}clearClockEvent(t){let{nextClockEvent:i}=this;if(!i)return!1;let{clockEventPool:s}=this,r=null;for(;i;){if(i.callback===t)return r?r.next=i.next:this.nextClockEvent=i.next,s.length<10&&s.push(i),!0;r=i,i=i.next}return!1}tick(){let{nextClockEvent:t}=this;t&&t.cycles<=this.cycles&&(t.callback(),this.nextClockEvent=t.next,this.clockEventPool.length<10&&this.clockEventPool.push(t));let{nextInterrupt:i}=this;if(this.interruptsEnabled&&i>=0){let s=this.pendingInterrupts[i];(0,Ge.avrInterrupt)(this,s.address),s.constant||this.clearInterrupt(s)}}};rt.CPU=Rt});var Lt=S(pt=>{"use strict";Object.defineProperty(pt,"__esModule",{value:!0});pt.avrInstruction=Ze;function Q(e){return(e&65039)===36864||(e&65039)===37376||(e&65038)===37902||(e&65038)===37900}function Ze(e){let t=e.progMem[e.pc];if((t&64512)===7168){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=i+s+(e.data[95]&1),n=r&255;e.data[(t&496)>>4]=n;let a=e.data[95]&192;a|=n?0:2,a|=128&n?4:0,a|=(n^s)&(i^n)&128?8:0,a|=a>>2&1^a>>3&1?16:0,a|=r&256?1:0,a|=1&(i&s|s&~n|~n&i)?32:0,e.data[95]=a}else if((t&64512)===3072){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=i+s&255;e.data[(t&496)>>4]=r;let n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=(r^s)&(r^i)&128?8:0,n|=n>>2&1^n>>3&1?16:0,n|=i+s&256?1:0,n|=1&(i&s|s&~r|~r&i)?32:0,e.data[95]=n}else if((t&65280)===38400){let i=2*((t&48)>>4)+24,s=e.dataView.getUint16(i,!0),r=s+(t&15|(t&192)>>2)&65535;e.dataView.setUint16(i,r,!0);let n=e.data[95]&224;n|=r?0:2,n|=32768&r?4:0,n|=~s&r&32768?8:0,n|=n>>2&1^n>>3&1?16:0,n|=~r&s&32768?1:0,e.data[95]=n,e.cycles++}else if((t&64512)===8192){let i=e.data[(t&496)>>4]&e.data[t&15|(t&512)>>5];e.data[(t&496)>>4]=i;let s=e.data[95]&225;s|=i?0:2,s|=128&i?4:0,s|=s>>2&1^s>>3&1?16:0,e.data[95]=s}else if((t&61440)===28672){let i=e.data[((t&240)>>4)+16]&(t&15|(t&3840)>>4);e.data[((t&240)>>4)+16]=i;let s=e.data[95]&225;s|=i?0:2,s|=128&i?4:0,s|=s>>2&1^s>>3&1?16:0,e.data[95]=s}else if((t&65039)===37893){let i=e.data[(t&496)>>4],s=i>>>1|128&i;e.data[(t&496)>>4]=s;let r=e.data[95]&224;r|=s?0:2,r|=128&s?4:0,r|=i&1,r|=r>>2&1^r&1?8:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if((t&65423)===38024)e.data[95]&=~(1<<((t&112)>>4));else if((t&65032)===63488){let i=t&7,s=(t&496)>>4;e.data[s]=~(1<<i)&e.data[s]|(e.data[95]>>6&1)<<i}else if((t&64512)===62464)e.data[95]&1<<(t&7)||(e.pc=e.pc+(((t&504)>>3)-(t&512?64:0)),e.cycles++);else if((t&64512)===61440)e.data[95]&1<<(t&7)&&(e.pc=e.pc+(((t&504)>>3)-(t&512?64:0)),e.cycles++);else if((t&65423)===37896)e.data[95]|=1<<((t&112)>>4);else if((t&65032)===64e3){let i=e.data[(t&496)>>4],s=t&7;e.data[95]=e.data[95]&191|(i>>s&1?64:0)}else if((t&65038)===37902){let i=e.progMem[e.pc+1]|(t&1)<<16|(t&496)<<13,s=e.pc+2,r=e.dataView.getUint16(93,!0),{pc22Bits:n}=e;e.data[r]=255&s,e.data[r-1]=s>>8&255,n&&(e.data[r-2]=s>>16&255),e.dataView.setUint16(93,r-(n?3:2),!0),e.pc=i-1,e.cycles+=n?4:3}else if((t&65280)===38912){let i=t&248,s=t&7,r=e.readData((i>>3)+32),n=1<<s;e.writeData((i>>3)+32,r&~n,n)}else if((t&65039)===37888){let i=(t&496)>>4,s=255-e.data[i];e.data[i]=s;let r=e.data[95]&225|1;r|=s?0:2,r|=128&s?4:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if((t&64512)===5120){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=i-s,n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=((i^s)&(i^r)&128)!==0?8:0,n|=n>>2&1^n>>3&1?16:0,n|=s>i?1:0,n|=1&(~i&s|s&r|r&~i)?32:0,e.data[95]=n}else if((t&64512)===1024){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=e.data[95],n=i-s-(r&1);r=r&192|(!n&&r>>1&1?2:0)|(s+(r&1)>i?1:0),r|=128&n?4:0,r|=(i^s)&(i^n)&128?8:0,r|=r>>2&1^r>>3&1?16:0,r|=1&(~i&s|s&n|n&~i)?32:0,e.data[95]=r}else if((t&61440)===12288){let i=e.data[((t&240)>>4)+16],s=t&15|(t&3840)>>4,r=i-s,n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=(i^s)&(i^r)&128?8:0,n|=n>>2&1^n>>3&1?16:0,n|=s>i?1:0,n|=1&(~i&s|s&r|r&~i)?32:0,e.data[95]=n}else if((t&64512)===4096){if(e.data[(t&496)>>4]===e.data[t&15|(t&512)>>5]){let i=e.progMem[e.pc+1],s=Q(i)?2:1;e.pc+=s,e.cycles+=s}}else if((t&65039)===37898){let i=e.data[(t&496)>>4],s=i-1;e.data[(t&496)>>4]=s;let r=e.data[95]&225;r|=s?0:2,r|=128&s?4:0,r|=i===128?8:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if(t===38169){let i=e.pc+1,s=e.dataView.getUint16(93,!0),r=e.data[92];e.data[s]=i&255,e.data[s-1]=i>>8&255,e.data[s-2]=i>>16&255,e.dataView.setUint16(93,s-3,!0),e.pc=(r<<16|e.dataView.getUint16(30,!0))-1,e.cycles+=3}else if(t===37913){let i=e.data[92];e.pc=(i<<16|e.dataView.getUint16(30,!0))-1,e.cycles++}else if(t===38360){let i=e.data[91];e.data[0]=e.progBytes[i<<16|e.dataView.getUint16(30,!0)],e.cycles+=2}else if((t&65039)===36870){let i=e.data[91];e.data[(t&496)>>4]=e.progBytes[i<<16|e.dataView.getUint16(30,!0)],e.cycles+=2}else if((t&65039)===36871){let i=e.data[91],s=e.dataView.getUint16(30,!0);e.data[(t&496)>>4]=e.progBytes[i<<16|s],e.dataView.setUint16(30,s+1,!0),s===65535&&(e.data[91]=(i+1)%(e.progBytes.length>>16)),e.cycles+=2}else if((t&64512)===9216){let i=e.data[(t&496)>>4]^e.data[t&15|(t&512)>>5];e.data[(t&496)>>4]=i;let s=e.data[95]&225;s|=i?0:2,s|=128&i?4:0,s|=s>>2&1^s>>3&1?16:0,e.data[95]=s}else if((t&65416)===776){let i=e.data[((t&112)>>4)+16],s=e.data[(t&7)+16],r=i*s<<1;e.dataView.setUint16(0,r,!0),e.data[95]=e.data[95]&252|(65535&r?0:2)|(i*s&32768?1:0),e.cycles++}else if((t&65416)===896){let i=e.dataView.getInt8(((t&112)>>4)+16),s=e.dataView.getInt8((t&7)+16),r=i*s<<1;e.dataView.setInt16(0,r,!0),e.data[95]=e.data[95]&252|(65535&r?0:2)|(i*s&32768?1:0),e.cycles++}else if((t&65416)===904){let i=e.dataView.getInt8(((t&112)>>4)+16),s=e.data[(t&7)+16],r=i*s<<1;e.dataView.setInt16(0,r,!0),e.data[95]=e.data[95]&252|(65535&r?2:0)|(i*s&32768?1:0),e.cycles++}else if(t===38153){let i=e.pc+1,s=e.dataView.getUint16(93,!0),{pc22Bits:r}=e;e.data[s]=i&255,e.data[s-1]=i>>8&255,r&&(e.data[s-2]=i>>16&255),e.dataView.setUint16(93,s-(r?3:2),!0),e.pc=e.dataView.getUint16(30,!0)-1,e.cycles+=r?3:2}else if(t===37897)e.pc=e.dataView.getUint16(30,!0)-1,e.cycles++;else if((t&63488)===45056){let i=e.readData((t&15|(t&1536)>>5)+32);e.data[(t&496)>>4]=i}else if((t&65039)===37891){let i=e.data[(t&496)>>4],s=i+1&255;e.data[(t&496)>>4]=s;let r=e.data[95]&225;r|=s?0:2,r|=128&s?4:0,r|=i===127?8:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if((t&65038)===37900)e.pc=(e.progMem[e.pc+1]|(t&1)<<16|(t&496)<<13)-1,e.cycles+=2;else if((t&65039)===37382){let i=(t&496)>>4,s=e.data[i],r=e.readData(e.dataView.getUint16(30,!0));e.writeData(e.dataView.getUint16(30,!0),r&255-s),e.data[i]=r}else if((t&65039)===37381){let i=(t&496)>>4,s=e.data[i],r=e.readData(e.dataView.getUint16(30,!0));e.writeData(e.dataView.getUint16(30,!0),r|s),e.data[i]=r}else if((t&65039)===37383){let i=e.data[(t&496)>>4],s=e.readData(e.dataView.getUint16(30,!0));e.writeData(e.dataView.getUint16(30,!0),i^s),e.data[(t&496)>>4]=s}else if((t&61440)===57344)e.data[((t&240)>>4)+16]=t&15|(t&3840)>>4;else if((t&65039)===36864){e.cycles++;let i=e.readData(e.progMem[e.pc+1]);e.data[(t&496)>>4]=i,e.pc++}else if((t&65039)===36876)e.cycles++,e.data[(t&496)>>4]=e.readData(e.dataView.getUint16(26,!0));else if((t&65039)===36877){let i=e.dataView.getUint16(26,!0);e.cycles++,e.data[(t&496)>>4]=e.readData(i),e.dataView.setUint16(26,i+1,!0)}else if((t&65039)===36878){let i=e.dataView.getUint16(26,!0)-1;e.dataView.setUint16(26,i,!0),e.cycles++,e.data[(t&496)>>4]=e.readData(i)}else if((t&65039)===32776)e.cycles++,e.data[(t&496)>>4]=e.readData(e.dataView.getUint16(28,!0));else if((t&65039)===36873){let i=e.dataView.getUint16(28,!0);e.cycles++,e.data[(t&496)>>4]=e.readData(i),e.dataView.setUint16(28,i+1,!0)}else if((t&65039)===36874){let i=e.dataView.getUint16(28,!0)-1;e.dataView.setUint16(28,i,!0),e.cycles++,e.data[(t&496)>>4]=e.readData(i)}else if((t&53768)===32776&&t&7|(t&3072)>>7|(t&8192)>>8)e.cycles++,e.data[(t&496)>>4]=e.readData(e.dataView.getUint16(28,!0)+(t&7|(t&3072)>>7|(t&8192)>>8));else if((t&65039)===32768)e.cycles++,e.data[(t&496)>>4]=e.readData(e.dataView.getUint16(30,!0));else if((t&65039)===36865){let i=e.dataView.getUint16(30,!0);e.cycles++,e.data[(t&496)>>4]=e.readData(i),e.dataView.setUint16(30,i+1,!0)}else if((t&65039)===36866){let i=e.dataView.getUint16(30,!0)-1;e.dataView.setUint16(30,i,!0),e.cycles++,e.data[(t&496)>>4]=e.readData(i)}else if((t&53768)===32768&&t&7|(t&3072)>>7|(t&8192)>>8)e.cycles++,e.data[(t&496)>>4]=e.readData(e.dataView.getUint16(30,!0)+(t&7|(t&3072)>>7|(t&8192)>>8));else if(t===38344)e.data[0]=e.progBytes[e.dataView.getUint16(30,!0)],e.cycles+=2;else if((t&65039)===36868)e.data[(t&496)>>4]=e.progBytes[e.dataView.getUint16(30,!0)],e.cycles+=2;else if((t&65039)===36869){let i=e.dataView.getUint16(30,!0);e.data[(t&496)>>4]=e.progBytes[i],e.dataView.setUint16(30,i+1,!0),e.cycles+=2}else if((t&65039)===37894){let i=e.data[(t&496)>>4],s=i>>>1;e.data[(t&496)>>4]=s;let r=e.data[95]&224;r|=s?0:2,r|=i&1,r|=r>>2&1^r&1?8:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if((t&64512)===11264)e.data[(t&496)>>4]=e.data[t&15|(t&512)>>5];else if((t&65280)===256){let i=2*(t&15),s=2*((t&240)>>4);e.data[s]=e.data[i],e.data[s+1]=e.data[i+1]}else if((t&64512)===39936){let i=e.data[(t&496)>>4]*e.data[t&15|(t&512)>>5];e.dataView.setUint16(0,i,!0),e.data[95]=e.data[95]&252|(65535&i?0:2)|(32768&i?1:0),e.cycles++}else if((t&65280)===512){let i=e.dataView.getInt8(((t&240)>>4)+16)*e.dataView.getInt8((t&15)+16);e.dataView.setInt16(0,i,!0),e.data[95]=e.data[95]&252|(65535&i?0:2)|(32768&i?1:0),e.cycles++}else if((t&65416)===768){let i=e.dataView.getInt8(((t&112)>>4)+16)*e.data[(t&7)+16];e.dataView.setInt16(0,i,!0),e.data[95]=e.data[95]&252|(65535&i?0:2)|(32768&i?1:0),e.cycles++}else if((t&65039)===37889){let i=(t&496)>>4,s=e.data[i],r=0-s;e.data[i]=r;let n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=r===128?8:0,n|=n>>2&1^n>>3&1?16:0,n|=r?1:0,n|=1&(r|s)?32:0,e.data[95]=n}else if(t!==0){if((t&64512)===10240){let i=e.data[(t&496)>>4]|e.data[t&15|(t&512)>>5];e.data[(t&496)>>4]=i;let s=e.data[95]&225;s|=i?0:2,s|=128&i?4:0,s|=s>>2&1^s>>3&1?16:0,e.data[95]=s}else if((t&61440)===24576){let i=e.data[((t&240)>>4)+16]|(t&15|(t&3840)>>4);e.data[((t&240)>>4)+16]=i;let s=e.data[95]&225;s|=i?0:2,s|=128&i?4:0,s|=s>>2&1^s>>3&1?16:0,e.data[95]=s}else if((t&63488)===47104)e.writeData((t&15|(t&1536)>>5)+32,e.data[(t&496)>>4]);else if((t&65039)===36879){let i=e.dataView.getUint16(93,!0)+1;e.dataView.setUint16(93,i,!0),e.data[(t&496)>>4]=e.data[i],e.cycles++}else if((t&65039)===37391){let i=e.dataView.getUint16(93,!0);e.data[i]=e.data[(t&496)>>4],e.dataView.setUint16(93,i-1,!0),e.cycles++}else if((t&61440)===53248){let i=(t&2047)-(t&2048?2048:0),s=e.pc+1,r=e.dataView.getUint16(93,!0),{pc22Bits:n}=e;e.data[r]=255&s,e.data[r-1]=s>>8&255,n&&(e.data[r-2]=s>>16&255),e.dataView.setUint16(93,r-(n?3:2),!0),e.pc+=i,e.cycles+=n?3:2}else if(t===38152){let{pc22Bits:i}=e,s=e.dataView.getUint16(93,!0)+(i?3:2);e.dataView.setUint16(93,s,!0),e.pc=(e.data[s-1]<<8)+e.data[s]-1,i&&(e.pc|=e.data[s-2]<<16),e.cycles+=i?4:3}else if(t===38168){let{pc22Bits:i}=e,s=e.dataView.getUint16(93,!0)+(i?3:2);e.dataView.setUint16(93,s,!0),e.pc=(e.data[s-1]<<8)+e.data[s]-1,i&&(e.pc|=e.data[s-2]<<16),e.cycles+=i?4:3,e.data[95]|=128}else if((t&61440)===49152)e.pc=e.pc+((t&2047)-(t&2048?2048:0)),e.cycles++;else if((t&65039)===37895){let i=e.data[(t&496)>>4],s=i>>>1|(e.data[95]&1)<<7;e.data[(t&496)>>4]=s;let r=e.data[95]&224;r|=s?0:2,r|=128&s?4:0,r|=1&i?1:0,r|=r>>2&1^r&1?8:0,r|=r>>2&1^r>>3&1?16:0,e.data[95]=r}else if((t&64512)===2048){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=e.data[95],n=i-s-(r&1);e.data[(t&496)>>4]=n,r=r&192|(!n&&r>>1&1?2:0)|(s+(r&1)>i?1:0),r|=128&n?4:0,r|=(i^s)&(i^n)&128?8:0,r|=r>>2&1^r>>3&1?16:0,r|=1&(~i&s|s&n|n&~i)?32:0,e.data[95]=r}else if((t&61440)===16384){let i=e.data[((t&240)>>4)+16],s=t&15|(t&3840)>>4,r=e.data[95],n=i-s-(r&1);e.data[((t&240)>>4)+16]=n,r=r&192|(!n&&r>>1&1?2:0)|(s+(r&1)>i?1:0),r|=128&n?4:0,r|=(i^s)&(i^n)&128?8:0,r|=r>>2&1^r>>3&1?16:0,r|=1&(~i&s|s&n|n&~i)?32:0,e.data[95]=r}else if((t&65280)===39424){let i=((t&248)>>3)+32,s=1<<(t&7);e.writeData(i,e.readData(i)|s,s),e.cycles++}else if((t&65280)===39168){if(!(e.readData(((t&248)>>3)+32)&1<<(t&7))){let s=e.progMem[e.pc+1],r=Q(s)?2:1;e.cycles+=r,e.pc+=r}}else if((t&65280)===39680){if(e.readData(((t&248)>>3)+32)&1<<(t&7)){let s=e.progMem[e.pc+1],r=Q(s)?2:1;e.cycles+=r,e.pc+=r}}else if((t&65280)===38656){let i=2*((t&48)>>4)+24,s=e.dataView.getUint16(i,!0),r=t&15|(t&192)>>2,n=s-r;e.dataView.setUint16(i,n,!0);let a=e.data[95]&192;a|=n?0:2,a|=32768&n?4:0,a|=s&~n&32768?8:0,a|=a>>2&1^a>>3&1?16:0,a|=r>s?1:0,a|=1&(~s&r|r&n|n&~s)?32:0,e.data[95]=a,e.cycles++}else if((t&65032)===64512){if(!(e.data[(t&496)>>4]&1<<(t&7))){let i=e.progMem[e.pc+1],s=Q(i)?2:1;e.cycles+=s,e.pc+=s}}else if((t&65032)===65024){if(e.data[(t&496)>>4]&1<<(t&7)){let i=e.progMem[e.pc+1],s=Q(i)?2:1;e.cycles+=s,e.pc+=s}}else if(t!==38280){if(t!==38376){if(t!==38392){if((t&65039)===37376){let i=e.data[(t&496)>>4],s=e.progMem[e.pc+1];e.writeData(s,i),e.pc++,e.cycles++}else if((t&65039)===37388)e.writeData(e.dataView.getUint16(26,!0),e.data[(t&496)>>4]),e.cycles++;else if((t&65039)===37389){let i=e.dataView.getUint16(26,!0);e.writeData(i,e.data[(t&496)>>4]),e.dataView.setUint16(26,i+1,!0),e.cycles++}else if((t&65039)===37390){let i=e.data[(t&496)>>4],s=e.dataView.getUint16(26,!0)-1;e.dataView.setUint16(26,s,!0),e.writeData(s,i),e.cycles++}else if((t&65039)===33288)e.writeData(e.dataView.getUint16(28,!0),e.data[(t&496)>>4]),e.cycles++;else if((t&65039)===37385){let i=e.data[(t&496)>>4],s=e.dataView.getUint16(28,!0);e.writeData(s,i),e.dataView.setUint16(28,s+1,!0),e.cycles++}else if((t&65039)===37386){let i=e.data[(t&496)>>4],s=e.dataView.getUint16(28,!0)-1;e.dataView.setUint16(28,s,!0),e.writeData(s,i),e.cycles++}else if((t&53768)===33288&&t&7|(t&3072)>>7|(t&8192)>>8)e.writeData(e.dataView.getUint16(28,!0)+(t&7|(t&3072)>>7|(t&8192)>>8),e.data[(t&496)>>4]),e.cycles++;else if((t&65039)===33280)e.writeData(e.dataView.getUint16(30,!0),e.data[(t&496)>>4]),e.cycles++;else if((t&65039)===37377){let i=e.dataView.getUint16(30,!0);e.writeData(i,e.data[(t&496)>>4]),e.dataView.setUint16(30,i+1,!0),e.cycles++}else if((t&65039)===37378){let i=e.data[(t&496)>>4],s=e.dataView.getUint16(30,!0)-1;e.dataView.setUint16(30,s,!0),e.writeData(s,i),e.cycles++}else if((t&53768)===33280&&t&7|(t&3072)>>7|(t&8192)>>8)e.writeData(e.dataView.getUint16(30,!0)+(t&7|(t&3072)>>7|(t&8192)>>8),e.data[(t&496)>>4]),e.cycles++;else if((t&64512)===6144){let i=e.data[(t&496)>>4],s=e.data[t&15|(t&512)>>5],r=i-s;e.data[(t&496)>>4]=r;let n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=(i^s)&(i^r)&128?8:0,n|=n>>2&1^n>>3&1?16:0,n|=s>i?1:0,n|=1&(~i&s|s&r|r&~i)?32:0,e.data[95]=n}else if((t&61440)===20480){let i=e.data[((t&240)>>4)+16],s=t&15|(t&3840)>>4,r=i-s;e.data[((t&240)>>4)+16]=r;let n=e.data[95]&192;n|=r?0:2,n|=128&r?4:0,n|=(i^s)&(i^r)&128?8:0,n|=n>>2&1^n>>3&1?16:0,n|=s>i?1:0,n|=1&(~i&s|s&r|r&~i)?32:0,e.data[95]=n}else if((t&65039)===37890){let i=(t&496)>>4,s=e.data[i];e.data[i]=(15&s)<<4|(240&s)>>>4}else if(t===38312)e.onWatchdogReset();else if((t&65039)===37380){let i=(t&496)>>4,s=e.data[i],r=e.data[e.dataView.getUint16(30,!0)];e.data[e.dataView.getUint16(30,!0)]=s,e.data[i]=r}}}}}e.pc=(e.pc+1)%e.progMem.length,e.cycles++}});var Xt=S(b=>{"use strict";Object.defineProperty(b,"__esModule",{value:!0});b.AVRADC=b.adcConfig=b.atmega328Channels=b.ADCMuxInputType=b.ADCReference=void 0;var O;(function(e){e[e.AVCC=0]="AVCC",e[e.AREF=1]="AREF",e[e.Internal1V1=2]="Internal1V1",e[e.Internal2V56=3]="Internal2V56",e[e.Reserved=4]="Reserved"})(O||(b.ADCReference=O={}));var T;(function(e){e[e.SingleEnded=0]="SingleEnded",e[e.Differential=1]="Differential",e[e.Constant=2]="Constant",e[e.Temperature=3]="Temperature"})(T||(b.ADCMuxInputType=T={}));b.atmega328Channels={0:{type:T.SingleEnded,channel:0},1:{type:T.SingleEnded,channel:1},2:{type:T.SingleEnded,channel:2},3:{type:T.SingleEnded,channel:3},4:{type:T.SingleEnded,channel:4},5:{type:T.SingleEnded,channel:5},6:{type:T.SingleEnded,channel:6},7:{type:T.SingleEnded,channel:7},8:{type:T.Temperature},14:{type:T.Constant,voltage:1.1},15:{type:T.Constant,voltage:0}};var Qe={type:T.Constant,voltage:0};b.adcConfig={ADMUX:124,ADCSRA:122,ADCSRB:123,ADCL:120,ADCH:121,DIDR0:126,adcInterrupt:42,numChannels:8,muxInputMask:15,muxChannels:b.atmega328Channels,adcReferences:[O.AREF,O.AVCC,O.Reserved,O.Internal1V1]};var Ye=7,$e=8,ti=16,qt=64,mt=128,ei=31,ii=32,si=8,ri=8,ni=3,ai=6,Pt=class{constructor(t,i){this.cpu=t,this.config=i,this.channelValues=new Array(this.config.numChannels),this.avcc=5,this.aref=5,this.onADCRead=s=>{var r;let n=0;switch(s.type){case T.Constant:n=s.voltage;break;case T.SingleEnded:n=(r=this.channelValues[s.channel])!==null&&r!==void 0?r:0;break;case T.Differential:n=s.gain*((this.channelValues[s.positiveChannel]||0)-(this.channelValues[s.negativeChannel]||0));break;case T.Temperature:n=.378125;break}let a=n/this.referenceVoltage*1024,c=Math.min(Math.max(Math.floor(a),0),1023);this.cpu.addClockEvent(()=>this.completeADCRead(c),this.sampleCycles)},this.converting=!1,this.conversionCycles=25,this.ADC={address:this.config.adcInterrupt,flagRegister:this.config.ADCSRA,flagMask:ti,enableRegister:this.config.ADCSRA,enableMask:$e},t.writeHooks[i.ADCSRA]=(s,r)=>{var n;if(s&mt&&!(r&&mt)&&(this.conversionCycles=25),t.data[i.ADCSRA]=s,t.updateInterruptEnable(this.ADC,s),!this.converting&&s&qt){if(!(s&mt))return this.cpu.addClockEvent(()=>this.completeADCRead(0),this.sampleCycles),!0;let a=this.cpu.data[this.config.ADMUX]&ei;t.data[i.ADCSRB]&si&&(a|=32),a&=i.muxInputMask;let c=(n=i.muxChannels[a])!==null&&n!==void 0?n:Qe;return this.converting=!0,this.onADCRead(c),!0}}}completeADCRead(t){let{ADCL:i,ADCH:s,ADMUX:r,ADCSRA:n}=this.config;this.converting=!1,this.conversionCycles=13,this.cpu.data[r]&ii?(this.cpu.data[i]=t<<6&255,this.cpu.data[s]=t>>2):(this.cpu.data[i]=t&255,this.cpu.data[s]=t>>8&3),this.cpu.data[n]&=~qt,this.cpu.setInterruptFlag(this.ADC)}get prescaler(){let{ADCSRA:t}=this.config;switch(this.cpu.data[t]&Ye){case 0:case 1:return 2;case 2:return 4;case 3:return 8;case 4:return 16;case 5:return 32;case 6:return 64;default:return 128}}get referenceVoltageType(){var t;let{ADMUX:i,adcReferences:s}=this.config,r=this.cpu.data[i]>>ai&ni;return s.length>4&&this.cpu.data[i]&ri&&(r|=4),(t=s[r])!==null&&t!==void 0?t:O.Reserved}get referenceVoltage(){switch(this.referenceVoltageType){case O.AVCC:return this.avcc;case O.AREF:return this.aref;case O.Internal1V1:return 1.1;case O.Internal2V56:return 2.56;default:return this.avcc}}get sampleCycles(){return this.conversionCycles*this.prescaler}};b.AVRADC=Pt});var Gt=S(F=>{"use strict";Object.defineProperty(F,"__esModule",{value:!0});F.AVRClock=F.clockConfig=void 0;var oi=128;F.clockConfig={CLKPR:97};var ci=[1,2,4,8,16,32,64,128,256,2,4,8,16,32,64,128],It=class{constructor(t,i,s=F.clockConfig){this.cpu=t,this.baseFreqHz=i,this.config=s,this.clockEnabledCycles=0,this.prescalerValue=1,this.cyclesDelta=0,this.cpu.writeHooks[this.config.CLKPR]=r=>{if((!this.clockEnabledCycles||this.clockEnabledCycles<t.cycles)&&r===oi)this.clockEnabledCycles=this.cpu.cycles+4;else if(this.clockEnabledCycles&&this.clockEnabledCycles>=t.cycles){this.clockEnabledCycles=0;let n=r&15,a=this.prescalerValue;this.prescalerValue=ci[n],this.cpu.data[this.config.CLKPR]=n,a!==this.prescalerValue&&(this.cyclesDelta=(t.cycles+this.cyclesDelta)*(a/this.prescalerValue)-t.cycles)}return!0}}get frequency(){return this.baseFreqHz/this.prescalerValue}get prescaler(){return this.prescalerValue}get timeNanos(){return(this.cpu.cycles+this.cyclesDelta)/this.frequency*1e9}get timeMicros(){return(this.cpu.cycles+this.cyclesDelta)/this.frequency*1e6}get timeMillis(){return(this.cpu.cycles+this.cyclesDelta)/this.frequency*1e3}};F.AVRClock=It});var $t=S(D=>{"use strict";Object.defineProperty(D,"__esModule",{value:!0});D.AVREEPROM=D.eepromConfig=D.EEPROMMemoryBackend=void 0;var Tt=class{constructor(t){this.memory=new Uint8Array(t),this.memory.fill(255)}readMemory(t){return this.memory[t]}writeMemory(t,i){this.memory[t]&=i}eraseMemory(t){this.memory[t]=255}};D.EEPROMMemoryBackend=Tt;D.eepromConfig={eepromReadyInterrupt:44,EECR:63,EEDR:64,EEARL:65,EEARH:66,eraseCycles:28800,writeCycles:28800};var zt=1,Y=2,yt=4,Zt=8,Qt=16,Yt=32,Jt=Y|yt|Zt|Qt|Yt,St=class{constructor(t,i,s=D.eepromConfig){this.cpu=t,this.backend=i,this.config=s,this.writeEnabledCycles=0,this.writeCompleteCycles=0,this.EER={address:this.config.eepromReadyInterrupt,flagRegister:this.config.EECR,flagMask:Y,enableRegister:this.config.EECR,enableMask:Zt,constant:!0,inverseFlag:!0},this.cpu.writeHooks[this.config.EECR]=r=>{let{EEARH:n,EEARL:a,EECR:c,EEDR:u}=this.config,m=this.cpu.data[n]<<8|this.cpu.data[a];if(this.cpu.data[c]=this.cpu.data[c]&~Jt|r&Jt,this.cpu.updateInterruptEnable(this.EER,r),r&zt&&this.cpu.clearInterrupt(this.EER),r&yt&&(this.writeEnabledCycles=this.cpu.cycles+4,this.cpu.addClockEvent(()=>{this.cpu.data[c]&=~yt},4)),r&zt)return this.cpu.data[u]=this.backend.readMemory(m),this.cpu.cycles+=4,!0;if(r&Y){if(this.cpu.cycles>=this.writeEnabledCycles)return this.cpu.data[c]&=~Y,!0;if(this.cpu.cycles<this.writeCompleteCycles)return!0;let C=this.cpu.data[u];this.writeCompleteCycles=this.cpu.cycles,r&Yt||(this.backend.eraseMemory(m),this.writeCompleteCycles+=this.config.eraseCycles),r&Qt||(this.backend.writeMemory(m,C),this.writeCompleteCycles+=this.config.writeCycles),this.cpu.data[c]|=Y,this.cpu.addClockEvent(()=>{this.cpu.setInterruptFlag(this.EER)},this.writeCompleteCycles-this.cpu.cycles),this.cpu.cycles+=2}return!0}}};D.AVREEPROM=St});var nt=S(d=>{"use strict";Object.defineProperty(d,"__esModule",{value:!0});d.AVRIOPort=d.PinOverrideMode=d.PinState=d.portLConfig=d.portKConfig=d.portJConfig=d.portHConfig=d.portGConfig=d.portFConfig=d.portEConfig=d.portDConfig=d.portCConfig=d.portBConfig=d.portAConfig=d.PCINT2=d.PCINT1=d.PCINT0=d.INT1=d.INT0=void 0;d.INT0={EICR:105,EIMSK:61,EIFR:60,index:0,iscOffset:0,interrupt:2};d.INT1={EICR:105,EIMSK:61,EIFR:60,index:1,iscOffset:2,interrupt:4};d.PCINT0={PCIE:0,PCICR:104,PCIFR:59,PCMSK:107,pinChangeInterrupt:6,mask:255,offset:0};d.PCINT1={PCIE:1,PCICR:104,PCIFR:59,PCMSK:108,pinChangeInterrupt:8,mask:255,offset:0};d.PCINT2={PCIE:2,PCICR:104,PCIFR:59,PCMSK:109,pinChangeInterrupt:10,mask:255,offset:0};d.portAConfig={PIN:32,DDR:33,PORT:34,externalInterrupts:[]};d.portBConfig={PIN:35,DDR:36,PORT:37,pinChange:d.PCINT0,externalInterrupts:[]};d.portCConfig={PIN:38,DDR:39,PORT:40,pinChange:d.PCINT1,externalInterrupts:[]};d.portDConfig={PIN:41,DDR:42,PORT:43,pinChange:d.PCINT2,externalInterrupts:[null,null,d.INT0,d.INT1]};d.portEConfig={PIN:44,DDR:45,PORT:46,externalInterrupts:[]};d.portFConfig={PIN:47,DDR:48,PORT:49,externalInterrupts:[]};d.portGConfig={PIN:50,DDR:51,PORT:52,externalInterrupts:[]};d.portHConfig={PIN:256,DDR:257,PORT:258,externalInterrupts:[]};d.portJConfig={PIN:259,DDR:260,PORT:261,externalInterrupts:[]};d.portKConfig={PIN:262,DDR:263,PORT:264,externalInterrupts:[]};d.portLConfig={PIN:265,DDR:266,PORT:267,externalInterrupts:[]};var K;(function(e){e[e.Low=0]="Low",e[e.High=1]="High",e[e.Input=2]="Input",e[e.InputPullUp=3]="InputPullUp"})(K||(d.PinState=K={}));var W;(function(e){e[e.None=0]="None",e[e.Enable=1]="Enable",e[e.Set=2]="Set",e[e.Clear=3]="Clear",e[e.Toggle=4]="Toggle"})(W||(d.PinOverrideMode=W={}));var N;(function(e){e[e.LowLevel=0]="LowLevel",e[e.Change=1]="Change",e[e.FallingEdge=2]="FallingEdge",e[e.RisingEdge=3]="RisingEdge"})(N||(N={}));var At=class{constructor(t,i){var s,r,n,a;this.cpu=t,this.portConfig=i,this.externalClockListeners=[],this.listeners=[],this.pinValue=0,this.overrideMask=255,this.overrideValue=0,this.lastValue=0,this.lastDdr=0,this.lastPin=0,this.openCollector=0,t.gpioPorts.add(this),t.gpioByPort[i.PORT]=this,t.writeHooks[i.DDR]=f=>{let I=t.data[i.PORT];return t.data[i.DDR]=f,this.writeGpio(I,f),this.updatePinRegister(f),!0},t.writeHooks[i.PORT]=f=>{let I=t.data[i.DDR];return t.data[i.PORT]=f,this.writeGpio(f,I),this.updatePinRegister(I),!0},t.writeHooks[i.PIN]=(f,I,l,P)=>{let g=t.data[i.PORT],A=t.data[i.DDR],w=g^f&P;return t.data[i.PORT]=w,this.writeGpio(w,A),this.updatePinRegister(A),!0};let{externalInterrupts:c}=i;this.externalInts=c.map(f=>f?{address:f.interrupt,flagRegister:f.EIFR,flagMask:1<<f.index,enableRegister:f.EIMSK,enableMask:1<<f.index}:null);let u=new Set(c.map(f=>f?.EICR));for(let f of u)this.attachInterruptHook(f||0);let m=(r=(s=c.find(f=>f&&f.EIMSK))===null||s===void 0?void 0:s.EIMSK)!==null&&r!==void 0?r:0;this.attachInterruptHook(m,"mask");let C=(a=(n=c.find(f=>f&&f.EIFR))===null||n===void 0?void 0:n.EIFR)!==null&&a!==void 0?a:0;this.attachInterruptHook(C,"flag");let{pinChange:h}=i;if(this.PCINT=h?{address:h.pinChangeInterrupt,flagRegister:h.PCIFR,flagMask:1<<h.PCIE,enableRegister:h.PCICR,enableMask:1<<h.PCIE}:null,h){let{PCIFR:f,PCMSK:I}=h;t.writeHooks[f]=l=>{for(let P of this.cpu.gpioPorts){let{PCINT:g}=P;g&&t.clearInterruptByFlag(g,l)}return!0},t.writeHooks[I]=l=>{t.data[I]=l;for(let P of this.cpu.gpioPorts){let{PCINT:g}=P;g&&t.updateInterruptEnable(g,l)}return!0}}}addListener(t){this.listeners.push(t)}removeListener(t){this.listeners=this.listeners.filter(i=>i!==t)}pinState(t){let i=this.cpu.data[this.portConfig.DDR],s=this.cpu.data[this.portConfig.PORT],r=1<<t,n=s&r?K.InputPullUp:K.Input,a=this.openCollector&r?n:K.High;return i&r?this.lastValue&r?a:K.Low:n}setPin(t,i){let s=1<<t;this.pinValue&=~s,i&&(this.pinValue|=s),this.updatePinRegister(this.cpu.data[this.portConfig.DDR])}timerOverridePin(t,i){let{cpu:s,portConfig:r}=this,n=1<<t;if(i===W.None)this.overrideMask|=n,this.overrideValue&=~n;else switch(this.overrideMask&=~n,i){case W.Enable:this.overrideValue&=~n,this.overrideValue|=s.data[r.PORT]&n;break;case W.Set:this.overrideValue|=n;break;case W.Clear:this.overrideValue&=~n;break;case W.Toggle:this.overrideValue^=n;break}let a=s.data[r.DDR];this.writeGpio(s.data[r.PORT],a),this.updatePinRegister(a)}updatePinRegister(t){var i,s;let r=this.pinValue&~t|this.lastValue&t;if(this.cpu.data[this.portConfig.PIN]=r,this.lastPin!==r){for(let n=0;n<8;n++)if((r&1<<n)!==(this.lastPin&1<<n)){let a=!!(r&1<<n);this.toggleInterrupt(n,a),(s=(i=this.externalClockListeners)[n])===null||s===void 0||s.call(i,a)}this.lastPin=r}}toggleInterrupt(t,i){let{cpu:s,portConfig:r,externalInts:n,PCINT:a}=this,{externalInterrupts:c,pinChange:u}=r,m=c[t],C=n[t];if(C&&m){let{EIMSK:h,index:f,EICR:I,iscOffset:l}=m;if(s.data[h]&1<<f){let P=s.data[I]>>l&3,g=!1;switch(C.constant=!1,P){case N.LowLevel:g=!i,C.constant=!0;break;case N.Change:g=!0;break;case N.FallingEdge:g=!i;break;case N.RisingEdge:g=i;break}g?s.setInterruptFlag(C):C.constant&&s.clearInterrupt(C,!0)}}if(u&&a&&u.mask&1<<t){let{PCMSK:h}=u;s.data[h]&1<<t+u.offset&&s.setInterruptFlag(a)}}attachInterruptHook(t,i="other"){if(!t)return;let{cpu:s}=this;s.writeHooks[t]=r=>{i!=="flag"&&(s.data[t]=r);for(let n of s.gpioPorts){for(let a of n.externalInts)a&&i==="mask"&&s.updateInterruptEnable(a,r),a&&!a.constant&&i==="flag"&&s.clearInterruptByFlag(a,r);n.checkExternalInterrupts()}return!0}}checkExternalInterrupts(){let{cpu:t}=this,{externalInterrupts:i}=this.portConfig;for(let s=0;s<8;s++){let r=i[s];if(!r)continue;let n=!!(this.lastPin&1<<s),{EIFR:a,EIMSK:c,index:u,EICR:m,iscOffset:C,interrupt:h}=r;if(!(t.data[c]&1<<u)||n)continue;(t.data[m]>>C&3)===N.LowLevel&&t.queueInterrupt({address:h,flagRegister:a,flagMask:1<<u,enableRegister:c,enableMask:1<<u,constant:!0})}}writeGpio(t,i){let s=(t&this.overrideMask|this.overrideValue)&i|t&~i,r=this.lastValue;if(s!==r||i!==this.lastDdr){this.lastValue=s,this.lastDdr=i;for(let n of this.listeners)n(s,r)}}};d.AVRIOPort=At});var ee=S(L=>{"use strict";Object.defineProperty(L,"__esModule",{value:!0});L.AVRSPI=L.spiConfig=void 0;var fi=128,hi=64,di=32,li=16,xi=8,Ci=4,gi=2,ui=1,Ri=gi|ui,pi=128,te=64,mi=1;L.spiConfig={spiInterrupt:34,SPCR:76,SPSR:77,SPDR:78};var Pi=8,bt=class{constructor(t,i,s){this.cpu=t,this.config=i,this.freqHz=s,this.onTransfer=()=>0,this.onByte=c=>{let u=this.onTransfer(c);this.cpu.addClockEvent(()=>this.completeTransfer(u),this.transferCycles)},this.transmissionActive=!1,this.SPI={address:this.config.spiInterrupt,flagRegister:this.config.SPSR,flagMask:pi,enableRegister:this.config.SPCR,enableMask:fi};let{SPCR:r,SPSR:n,SPDR:a}=i;t.writeHooks[a]=c=>{if(t.data[r]&hi)return this.transmissionActive?(t.data[n]|=te,!0):(t.data[n]&=~te,this.cpu.clearInterrupt(this.SPI),this.transmissionActive=!0,this.onByte(c),!0)},t.writeHooks[r]=c=>{this.cpu.updateInterruptEnable(this.SPI,c)},t.writeHooks[n]=c=>{this.cpu.data[n]=c,this.cpu.clearInterruptByFlag(this.SPI,c)}}reset(){this.transmissionActive=!1}completeTransfer(t){let{SPDR:i}=this.config;this.cpu.data[i]=t,this.cpu.setInterruptFlag(this.SPI),this.transmissionActive=!1}get isMaster(){return!!(this.cpu.data[this.config.SPCR]&li)}get dataOrder(){return this.cpu.data[this.config.SPCR]&di?"lsbFirst":"msbFirst"}get spiMode(){let t=this.cpu.data[this.config.SPCR]&Ci,i=this.cpu.data[this.config.SPCR]&xi;return(t?2:0)|(i?1:0)}get clockDivider(){let t=this.cpu.data[this.config.SPSR]&mi?2:4;switch(this.cpu.data[this.config.SPCR]&Ri){case 0:return t;case 1:return t*4;case 2:return t*16;case 3:return t*32}throw new Error("Invalid divider value!")}get transferCycles(){return this.clockDivider*Pi}get spiFrequency(){return this.freqHz/this.clockDivider}};L.AVRSPI=bt});var ne=S(U=>{"use strict";Object.defineProperty(U,"__esModule",{value:!0});U.AVRTimer=U.timer2Config=U.timer1Config=U.timer0Config=void 0;var p=nt(),re={0:0,1:1,2:8,3:64,4:256,5:1024,6:0,7:0},$;(function(e){e[e.FallingEdge=6]="FallingEdge",e[e.RisingEdge=7]="RisingEdge"})($||($={}));var Bt={TOV:1,OCFA:2,OCFB:4,OCFC:0,TOIE:1,OCIEA:2,OCIEB:4,OCIEC:0};U.timer0Config=Object.assign({bits:8,captureInterrupt:0,compAInterrupt:28,compBInterrupt:30,compCInterrupt:0,ovfInterrupt:32,TIFR:53,OCRA:71,OCRB:72,OCRC:0,ICR:0,TCNT:70,TCCRA:68,TCCRB:69,TCCRC:0,TIMSK:110,dividers:re,compPortA:p.portDConfig.PORT,compPinA:6,compPortB:p.portDConfig.PORT,compPinB:5,compPortC:0,compPinC:0,externalClockPort:p.portDConfig.PORT,externalClockPin:4},Bt);U.timer1Config=Object.assign({bits:16,captureInterrupt:20,compAInterrupt:22,compBInterrupt:24,compCInterrupt:0,ovfInterrupt:26,TIFR:54,OCRA:136,OCRB:138,OCRC:0,ICR:134,TCNT:132,TCCRA:128,TCCRB:129,TCCRC:130,TIMSK:111,dividers:re,compPortA:p.portBConfig.PORT,compPinA:1,compPortB:p.portBConfig.PORT,compPinB:2,compPortC:0,compPinC:0,externalClockPort:p.portDConfig.PORT,externalClockPin:5},Bt);U.timer2Config=Object.assign({bits:8,captureInterrupt:0,compAInterrupt:14,compBInterrupt:16,compCInterrupt:0,ovfInterrupt:18,TIFR:55,OCRA:179,OCRB:180,OCRC:0,ICR:0,TCNT:178,TCCRA:176,TCCRB:177,TCCRC:0,TIMSK:112,dividers:{0:0,1:1,2:8,3:32,4:64,5:128,6:256,7:1024},compPortA:p.portBConfig.PORT,compPinA:3,compPortB:p.portDConfig.PORT,compPinB:3,compPortC:0,compPinC:0,externalClockPort:0,externalClockPin:0},Bt);var X;(function(e){e[e.Normal=0]="Normal",e[e.PWMPhaseCorrect=1]="PWMPhaseCorrect",e[e.CTC=2]="CTC",e[e.FastPWM=3]="FastPWM",e[e.PWMPhaseFrequencyCorrect=4]="PWMPhaseFrequencyCorrect",e[e.Reserved=5]="Reserved"})(X||(X={}));var R;(function(e){e[e.Max=0]="Max",e[e.Top=1]="Top",e[e.Bottom=2]="Bottom"})(R||(R={}));var x;(function(e){e[e.Immediate=0]="Immediate",e[e.Top=1]="Top",e[e.Bottom=2]="Bottom"})(x||(x={}));var V=1,q=2,H=1,{Normal:Et,PWMPhaseCorrect:E,CTC:at,FastPWM:k,Reserved:wt,PWMPhaseFrequencyCorrect:tt}=X,Ii=[[Et,255,x.Immediate,R.Max,0],[E,255,x.Top,R.Bottom,0],[at,V,x.Immediate,R.Max,0],[k,255,x.Bottom,R.Max,0],[wt,255,x.Immediate,R.Max,0],[E,V,x.Top,R.Bottom,H],[wt,255,x.Immediate,R.Max,0],[k,V,x.Bottom,R.Top,H]],Ti=[[Et,65535,x.Immediate,R.Max,0],[E,255,x.Top,R.Bottom,0],[E,511,x.Top,R.Bottom,0],[E,1023,x.Top,R.Bottom,0],[at,V,x.Immediate,R.Max,0],[k,255,x.Bottom,R.Top,0],[k,511,x.Bottom,R.Top,0],[k,1023,x.Bottom,R.Top,0],[tt,q,x.Bottom,R.Bottom,0],[tt,V,x.Bottom,R.Bottom,H],[E,q,x.Top,R.Bottom,0],[E,V,x.Top,R.Bottom,H],[at,q,x.Immediate,R.Max,0],[wt,65535,x.Immediate,R.Max,0],[k,q,x.Bottom,R.Top,H],[k,V,x.Bottom,R.Top,H]];function yi(e){switch(e){case 1:return p.PinOverrideMode.Toggle;case 2:return p.PinOverrideMode.Clear;case 3:return p.PinOverrideMode.Set;default:return p.PinOverrideMode.Enable}}var ie=128,se=64,Si=32,Ot=class{constructor(t,i){if(this.cpu=t,this.config=i,this.MAX=this.config.bits===16?65535:255,this.lastCycle=0,this.ocrA=0,this.nextOcrA=0,this.ocrB=0,this.nextOcrB=0,this.hasOCRC=this.config.OCRC>0,this.ocrC=0,this.nextOcrC=0,this.ocrUpdateMode=x.Immediate,this.tovUpdateMode=R.Max,this.icr=0,this.tcnt=0,this.tcntNext=0,this.tcntUpdated=!1,this.updateDivider=!1,this.countingUp=!0,this.divider=0,this.externalClockRisingEdge=!1,this.highByteTemp=0,this.OVF={address:this.config.ovfInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.TOV,enableRegister:this.config.TIMSK,enableMask:this.config.TOIE},this.OCFA={address:this.config.compAInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.OCFA,enableRegister:this.config.TIMSK,enableMask:this.config.OCIEA},this.OCFB={address:this.config.compBInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.OCFB,enableRegister:this.config.TIMSK,enableMask:this.config.OCIEB},this.OCFC={address:this.config.compCInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.OCFC,enableRegister:this.config.TIMSK,enableMask:this.config.OCIEC},this.count=(s=!0,r=!1)=>{let{divider:n,lastCycle:a,cpu:c}=this,{cycles:u}=c,m=u-a;if(n&&m>=n||r){let C=r?1:Math.floor(m/n);this.lastCycle+=C*n;let h=this.tcnt,{timerMode:f,TOP:I}=this,l=f===E||f===tt,P=l?this.phasePwmCount(h,C):(h+C)%(I+1),g=h+C>I;if(this.tcntUpdated||(this.tcnt=P,l||this.timerUpdated(P,h)),!l){if(f===k&&g){let{compA:A,compB:w}=this;A&&this.updateCompPin(A,"A",!0),w&&this.updateCompPin(w,"B",!0)}this.ocrUpdateMode==x.Bottom&&g&&(this.ocrA=this.nextOcrA,this.ocrB=this.nextOcrB,this.ocrC=this.nextOcrC),g&&(this.tovUpdateMode==R.Top||I===this.MAX)&&c.setInterruptFlag(this.OVF)}}if(this.tcntUpdated&&(this.tcnt=this.tcntNext,this.tcntUpdated=!1,(this.tcnt===0&&this.ocrUpdateMode===x.Bottom||this.tcnt===this.TOP&&this.ocrUpdateMode===x.Top)&&(this.ocrA=this.nextOcrA,this.ocrB=this.nextOcrB,this.ocrC=this.nextOcrC)),this.updateDivider){let{CS:C}=this,{externalClockPin:h}=this.config,f=this.config.dividers[C];this.lastCycle=f?this.cpu.cycles:0,this.updateDivider=!1,this.divider=f,this.config.externalClockPort&&!this.externalClockPort&&(this.externalClockPort=this.cpu.gpioByPort[this.config.externalClockPort]),this.externalClockPort&&(this.externalClockPort.externalClockListeners[h]=null),f?c.addClockEvent(this.count,this.lastCycle+f-c.cycles):this.externalClockPort&&(C===$.FallingEdge||C===$.RisingEdge)&&(this.externalClockPort.externalClockListeners[h]=this.externalClockCallback,this.externalClockRisingEdge=C===$.RisingEdge);return}s&&n&&c.addClockEvent(this.count,this.lastCycle+n-c.cycles)},this.externalClockCallback=s=>{s===this.externalClockRisingEdge&&this.count(!1,!0)},this.updateWGMConfig(),this.cpu.readHooks[i.TCNT]=s=>(this.count(!1),this.config.bits===16&&(this.cpu.data[s+1]=this.tcnt>>8),this.cpu.data[s]=this.tcnt&255),this.cpu.writeHooks[i.TCNT]=s=>{this.tcntNext=this.highByteTemp<<8|s,this.countingUp=!0,this.tcntUpdated=!0,this.cpu.updateClockEvent(this.count,0),this.divider&&this.timerUpdated(this.tcntNext,this.tcntNext)},this.cpu.writeHooks[i.OCRA]=s=>{this.nextOcrA=this.highByteTemp<<8|s,this.ocrUpdateMode===x.Immediate&&(this.ocrA=this.nextOcrA)},this.cpu.writeHooks[i.OCRB]=s=>{this.nextOcrB=this.highByteTemp<<8|s,this.ocrUpdateMode===x.Immediate&&(this.ocrB=this.nextOcrB)},this.hasOCRC&&(this.cpu.writeHooks[i.OCRC]=s=>{this.nextOcrC=this.highByteTemp<<8|s,this.ocrUpdateMode===x.Immediate&&(this.ocrC=this.nextOcrC)}),this.config.bits===16){this.cpu.writeHooks[i.ICR]=n=>{this.icr=this.highByteTemp<<8|n};let s=n=>{this.highByteTemp=n},r=(n,a,c)=>(this.highByteTemp=n&this.ocrMask>>8,t.data[c]=this.highByteTemp,!0);this.cpu.writeHooks[i.TCNT+1]=s,this.cpu.writeHooks[i.OCRA+1]=r,this.cpu.writeHooks[i.OCRB+1]=r,this.hasOCRC&&(this.cpu.writeHooks[i.OCRC+1]=r),this.cpu.writeHooks[i.ICR+1]=s}t.writeHooks[i.TCCRA]=s=>(this.cpu.data[i.TCCRA]=s,this.updateWGMConfig(),!0),t.writeHooks[i.TCCRB]=s=>(i.TCCRC||(this.checkForceCompare(s),s&=~(ie|se)),this.cpu.data[i.TCCRB]=s,this.updateDivider=!0,this.cpu.clearClockEvent(this.count),this.cpu.addClockEvent(this.count,0),this.updateWGMConfig(),!0),i.TCCRC&&(t.writeHooks[i.TCCRC]=s=>{this.checkForceCompare(s)}),t.writeHooks[i.TIFR]=s=>(this.cpu.data[i.TIFR]=s,this.cpu.clearInterruptByFlag(this.OVF,s),this.cpu.clearInterruptByFlag(this.OCFA,s),this.cpu.clearInterruptByFlag(this.OCFB,s),!0),t.writeHooks[i.TIMSK]=s=>{this.cpu.updateInterruptEnable(this.OVF,s),this.cpu.updateInterruptEnable(this.OCFA,s),this.cpu.updateInterruptEnable(this.OCFB,s)}}reset(){this.divider=0,this.lastCycle=0,this.ocrA=0,this.nextOcrA=0,this.ocrB=0,this.nextOcrB=0,this.ocrC=0,this.nextOcrC=0,this.icr=0,this.tcnt=0,this.tcntNext=0,this.tcntUpdated=!1,this.countingUp=!1,this.updateDivider=!0}get TCCRA(){return this.cpu.data[this.config.TCCRA]}get TCCRB(){return this.cpu.data[this.config.TCCRB]}get TIMSK(){return this.cpu.data[this.config.TIMSK]}get CS(){return this.TCCRB&7}get WGM(){let t=this.config.bits===16?24:8;return(this.TCCRB&t)>>1|this.TCCRA&3}get TOP(){switch(this.topValue){case V:return this.ocrA;case q:return this.icr;default:return this.topValue}}get ocrMask(){switch(this.topValue){case V:case q:return 65535;default:return this.topValue}}get debugTCNT(){return this.tcnt}updateWGMConfig(){let{config:t,WGM:i}=this,s=t.bits===16?Ti:Ii,r=this.cpu.data[t.TCCRA],[n,a,c,u,m]=s[i];this.timerMode=n,this.topValue=a,this.ocrUpdateMode=c,this.tovUpdateMode=u;let C=n===k||n===E||n===tt,h=this.compA;this.compA=r>>6&3,this.compA===1&&C&&!(m&H)&&(this.compA=0),!!h!=!!this.compA&&this.updateCompA(this.compA?p.PinOverrideMode.Enable:p.PinOverrideMode.None);let f=this.compB;if(this.compB=r>>4&3,this.compB===1&&C&&(this.compB=0),!!f!=!!this.compB&&this.updateCompB(this.compB?p.PinOverrideMode.Enable:p.PinOverrideMode.None),this.hasOCRC){let I=this.compC;this.compC=r>>2&3,this.compC===1&&C&&(this.compC=0),!!I!=!!this.compC&&this.updateCompC(this.compC?p.PinOverrideMode.Enable:p.PinOverrideMode.None)}}phasePwmCount(t,i){let{ocrA:s,ocrB:r,ocrC:n,hasOCRC:a,TOP:c,MAX:u,tcntUpdated:m}=this;for(!t&&!c&&(i=0,this.ocrUpdateMode===x.Top&&(this.ocrA=this.nextOcrA,this.ocrB=this.nextOcrB,this.ocrC=this.nextOcrC));i>0;)this.countingUp?(t++,t===c&&!m&&(this.countingUp=!1,this.ocrUpdateMode===x.Top&&(this.ocrA=this.nextOcrA,this.ocrB=this.nextOcrB,this.ocrC=this.nextOcrC))):(t--,!t&&!m&&(this.countingUp=!0,this.cpu.setInterruptFlag(this.OVF),this.ocrUpdateMode===x.Bottom&&(this.ocrA=this.nextOcrA,this.ocrB=this.nextOcrB,this.ocrC=this.nextOcrC))),m||(t===s&&(this.cpu.setInterruptFlag(this.OCFA),this.compA&&this.updateCompPin(this.compA,"A")),t===r&&(this.cpu.setInterruptFlag(this.OCFB),this.compB&&this.updateCompPin(this.compB,"B")),a&&t===n&&(this.cpu.setInterruptFlag(this.OCFC),this.compC&&this.updateCompPin(this.compC,"C"))),i--;return t&u}timerUpdated(t,i){let{ocrA:s,ocrB:r,ocrC:n,hasOCRC:a}=this,c=i>t;((i<s||c)&&t>=s||i<s&&c)&&(this.cpu.setInterruptFlag(this.OCFA),this.compA&&this.updateCompPin(this.compA,"A")),((i<r||c)&&t>=r||i<r&&c)&&(this.cpu.setInterruptFlag(this.OCFB),this.compB&&this.updateCompPin(this.compB,"B")),a&&((i<n||c)&&t>=n||i<n&&c)&&(this.cpu.setInterruptFlag(this.OCFC),this.compC&&this.updateCompPin(this.compC,"C"))}checkForceCompare(t){this.timerMode==X.FastPWM||this.timerMode==X.PWMPhaseCorrect||this.timerMode==X.PWMPhaseFrequencyCorrect||(t&ie&&this.updateCompPin(this.compA,"A"),t&se&&this.updateCompPin(this.compB,"B"),this.config.compPortC&&t&Si&&this.updateCompPin(this.compC,"C"))}updateCompPin(t,i,s=!1){let r=p.PinOverrideMode.None,n=t===3,a=this.countingUp===n;switch(this.timerMode){case Et:case at:r=yi(t);break;case k:t===1?r=s?p.PinOverrideMode.None:p.PinOverrideMode.Toggle:r=n!==s?p.PinOverrideMode.Set:p.PinOverrideMode.Clear;break;case E:case tt:t===1?r=p.PinOverrideMode.Toggle:r=a?p.PinOverrideMode.Set:p.PinOverrideMode.Clear;break}r!==p.PinOverrideMode.None&&(i==="A"?this.updateCompA(r):i==="B"?this.updateCompB(r):this.updateCompC(r))}updateCompA(t){let{compPortA:i,compPinA:s}=this.config,r=this.cpu.gpioByPort[i];r?.timerOverridePin(s,t)}updateCompB(t){let{compPortB:i,compPinB:s}=this.config,r=this.cpu.gpioByPort[i];r?.timerOverridePin(s,t)}updateCompC(t){let{compPortC:i,compPinC:s}=this.config,r=this.cpu.gpioByPort[i];r?.timerOverridePin(s,t)}};U.AVRTimer=Ot});var fe=S(G=>{"use strict";Object.defineProperty(G,"__esModule",{value:!0});G.ATtinyTimer1=G.attinyTimer1Config=void 0;var M=nt(),Ai=128,bi=64,wi=15,Oi=64,ae=8,oe=4,ce=2;G.attinyTimer1Config={TCCR1:80,GTCCR:76,TCNT1:79,OCR1A:78,OCR1B:75,OCR1C:77,TIFR:88,TIMSK:89,ovfInterrupt:4,compAInterrupt:3,compBInterrupt:9,TOV1:4,OCF1A:64,OCF1B:32,TOIE1:4,OCIE1A:64,OCIE1B:32,compPortB:56,compPinA:1,compPinB:4,dividers:{0:0,1:1,2:2,3:4,4:8,5:16,6:32,7:64,8:128,9:256,10:512,11:1024,12:2048,13:4096,14:8192,15:16384}};var kt=class{constructor(t,i){this.cpu=t,this.config=i,this.lastCycle=0,this.tcnt=0,this.tcntNext=0,this.tcntUpdated=!1,this.ocrA=0,this.ocrB=0,this.ocrC=0,this.divider=0,this.updateDivider=!1,this.countingUp=!0,this.OVF={address:this.config.ovfInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.TOV1,enableRegister:this.config.TIMSK,enableMask:this.config.TOIE1},this.OCFA={address:this.config.compAInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.OCF1A,enableRegister:this.config.TIMSK,enableMask:this.config.OCIE1A},this.OCFB={address:this.config.compBInterrupt,flagRegister:this.config.TIFR,flagMask:this.config.OCF1B,enableRegister:this.config.TIMSK,enableMask:this.config.OCIE1B},this.count=(l=!0)=>{var P;let{divider:g,lastCycle:A,cpu:w}=this,{cycles:Le}=w,Nt=Le-A;if(g&&Nt>=g){let j=Math.floor(Nt/g);this.lastCycle+=j*g;let v=this.tcnt,Ht=this.TOP,Ct=(this.pwmA||this.pwmB)&&!this.ctcMode,jt=Ct?this.phasePwmCount(v,j):(v+j)%(Ht+1),qe=v+j>Ht;this.tcntUpdated||(this.tcnt=jt,Ct||this.timerUpdated(jt,v)),!Ct&&qe&&w.setInterruptFlag(this.OVF)}if(this.tcntUpdated&&(this.tcnt=this.tcntNext,this.tcntUpdated=!1),this.updateDivider){let j=this.CS,v=(P=this.config.dividers[j])!==null&&P!==void 0?P:0;this.lastCycle=v?this.cpu.cycles:0,this.updateDivider=!1,this.divider=v,v&&w.addClockEvent(this.count,this.lastCycle+v-w.cycles);return}l&&g&&w.addClockEvent(this.count,this.lastCycle+g-w.cycles)};let{TCCR1:s,GTCCR:r,TCNT1:n,OCR1A:a,OCR1B:c,OCR1C:u,TIFR:m,TIMSK:C}=i;t.readHooks[n]=()=>(this.count(!1),t.data[n]=this.tcnt&255),t.writeHooks[n]=l=>{this.tcntNext=l,this.countingUp=!0,this.tcntUpdated=!0,t.updateClockEvent(this.count,0),this.divider&&this.timerUpdated(this.tcntNext,this.tcntNext)},t.writeHooks[a]=l=>{this.ocrA=l},t.writeHooks[c]=l=>{this.ocrB=l},t.writeHooks[u]=l=>{this.ocrC=l},t.writeHooks[s]=l=>(t.data[s]=l,this.updateDivider=!0,t.clearClockEvent(this.count),t.addClockEvent(this.count,0),this.updateCompConfig(),!0);let h=t.writeHooks[r];t.writeHooks[r]=(l,P,g,A)=>(l&oe&&this.forceCompare("A"),l&ae&&this.forceCompare("B"),l&ce&&(this.lastCycle=this.cpu.cycles),l&=~(oe|ae|ce),h?h(l,P,g,A):t.data[r]=l,this.updateCompConfig(),!0);let f=t.writeHooks[m];t.writeHooks[m]=(l,P,g,A)=>(f?f(l,P,g,A):t.data[m]=l,t.clearInterruptByFlag(this.OVF,l),t.clearInterruptByFlag(this.OCFA,l),t.clearInterruptByFlag(this.OCFB,l),!0);let I=t.writeHooks[C];t.writeHooks[C]=(l,P,g,A)=>{I&&I(l,P,g,A),t.updateInterruptEnable(this.OVF,l),t.updateInterruptEnable(this.OCFA,l),t.updateInterruptEnable(this.OCFB,l)}}get tccr1(){return this.cpu.data[this.config.TCCR1]}get gtccr(){return this.cpu.data[this.config.GTCCR]}get CS(){return this.tccr1&wi}get ctcMode(){return!!(this.tccr1&Ai)}get pwmA(){return!!(this.tccr1&bi)}get pwmB(){return!!(this.gtccr&Oi)}get comA(){return this.tccr1>>4&3}get comB(){return this.gtccr>>4&3}get TOP(){return this.ctcMode||this.pwmA||this.pwmB?this.ocrC:255}phasePwmCount(t,i){let s=this.TOP;for(;i>0;)this.countingUp?(t++,t>=s&&(t=s,this.countingUp=!1)):(t--,t<=0&&(t=0,this.countingUp=!0,this.cpu.setInterruptFlag(this.OVF))),this.tcntUpdated||(t===this.ocrA&&(this.cpu.setInterruptFlag(this.OCFA),this.updateCompPinPwm("A")),t===this.ocrB&&(this.cpu.setInterruptFlag(this.OCFB),this.updateCompPinPwm("B"))),i--;return t&255}timerUpdated(t,i){let{ocrA:s,ocrB:r}=this,n=i>t;((i<s||n)&&t>=s||i<s&&n)&&(this.cpu.setInterruptFlag(this.OCFA),this.comA&&!this.pwmA&&this.updateCompPinNonPwm("A")),((i<r||n)&&t>=r||i<r&&n)&&(this.cpu.setInterruptFlag(this.OCFB),this.comB&&!this.pwmB&&this.updateCompPinNonPwm("B"))}forceCompare(t){t==="A"&&!this.pwmA&&this.comA?this.updateCompPinNonPwm("A"):t==="B"&&!this.pwmB&&this.comB&&this.updateCompPinNonPwm("B")}updateCompPinNonPwm(t){var i;let s=t==="A"?this.comA:this.comB,r=t==="A"?this.config.compPinA:this.config.compPinB,n;switch(s){case 1:n=M.PinOverrideMode.Toggle;break;case 2:n=M.PinOverrideMode.Clear;break;case 3:n=M.PinOverrideMode.Set;break;default:return}(i=this.cpu.gpioByPort[this.config.compPortB])===null||i===void 0||i.timerOverridePin(r,n)}updateCompPinPwm(t){var i;let s=t==="A"?this.comA:this.comB,r=t==="A"?this.config.compPinA:this.config.compPinB,n=s===3,a=this.countingUp===n,c;switch(s){case 1:c=M.PinOverrideMode.Toggle;break;case 2:case 3:c=a?M.PinOverrideMode.Set:M.PinOverrideMode.Clear;break;default:return}(i=this.cpu.gpioByPort[this.config.compPortB])===null||i===void 0||i.timerOverridePin(r,c)}updateCompConfig(){let t=this.cpu.gpioByPort[this.config.compPortB];t&&(t.timerOverridePin(this.config.compPinA,this.comA?M.PinOverrideMode.Enable:M.PinOverrideMode.None),t.timerOverridePin(this.config.compPinB,this.comB?M.PinOverrideMode.Enable:M.PinOverrideMode.None))}};G.ATtinyTimer1=kt});var Pe=S(_=>{"use strict";Object.defineProperty(_,"__esModule",{value:!0});_.AVRTWI=_.NoopTWIEventHandler=_.twiConfig=void 0;var he=128,de=64,Bi=32,le=16,Ei=4,ki=1,xe=248,Ui=2,Mi=1,vi=Ui|Mi,ot=248,Ce=8,ge=16,ue=24,Di=32,Re=40,Vi=48,pe=64,_i=72,me=80,Fi=88;_.twiConfig={twiInterrupt:48,TWBR:184,TWSR:185,TWAR:186,TWDR:187,TWCR:188,TWAMR:189};var ct=class{constructor(t){this.twi=t}start(){this.twi.completeStart()}stop(){this.twi.completeStop()}connectToSlave(){this.twi.completeConnect(!1)}writeByte(){this.twi.completeWrite(!1)}readByte(){this.twi.completeRead(255)}};_.NoopTWIEventHandler=ct;var Ut=class{constructor(t,i,s){this.cpu=t,this.config=i,this.freqHz=s,this.eventHandler=new ct(this),this.busy=!1,this.TWI={address:this.config.twiInterrupt,flagRegister:this.config.TWCR,flagMask:he,enableRegister:this.config.TWCR,enableMask:ki},this.updateStatus(ot),this.cpu.writeHooks[i.TWCR]=r=>{this.cpu.data[i.TWCR]=r;let n=r&he;this.cpu.clearInterruptByFlag(this.TWI,r),this.cpu.updateInterruptEnable(this.TWI,r);let{status:a}=this;if(n&&r&Ei&&!this.busy){let c=this.cpu.data[this.config.TWDR];return this.cpu.addClockEvent(()=>{if(r&Bi)this.busy=!0,this.eventHandler.start(a!==ot);else if(r&le)this.busy=!0,this.eventHandler.stop();else if(a===Ce||a===ge)this.busy=!0,this.eventHandler.connectToSlave(c>>1,!(c&1));else if(a===ue||a===Re)this.busy=!0,this.eventHandler.writeByte(c);else if(a===pe||a===me){this.busy=!0;let u=!!(r&de);this.eventHandler.readByte(u)}},0),!0}}}get prescaler(){switch(this.cpu.data[this.config.TWSR]&vi){case 0:return 1;case 1:return 4;case 2:return 16;case 3:return 64}throw new Error("Invalid prescaler value!")}get sclFrequency(){return this.freqHz/(16+2*this.cpu.data[this.config.TWBR]*this.prescaler)}completeStart(){this.busy=!1,this.updateStatus(this.status===ot?Ce:ge)}completeStop(){this.busy=!1,this.cpu.data[this.config.TWCR]&=~le,this.updateStatus(ot)}completeConnect(t){this.busy=!1,this.cpu.data[this.config.TWDR]&1?this.updateStatus(t?pe:_i):this.updateStatus(t?ue:Di)}completeWrite(t){this.busy=!1,this.updateStatus(t?Re:Vi)}completeRead(t){this.busy=!1;let i=!!(this.cpu.data[this.config.TWCR]&de);this.cpu.data[this.config.TWDR]=t,this.updateStatus(i?me:Fi)}get status(){return this.cpu.data[this.config.TWSR]&xe}updateStatus(t){let{TWSR:i}=this.config;this.cpu.data[i]=this.cpu.data[i]&~xe|t,this.cpu.setInterruptFlag(this.TWI)}};_.AVRTWI=Ut});var we=S(z=>{"use strict";Object.defineProperty(z,"__esModule",{value:!0});z.AVRUSART=z.usart0Config=void 0;z.usart0Config={rxCompleteInterrupt:36,dataRegisterEmptyInterrupt:38,txCompleteInterrupt:40,UCSRA:192,UCSRB:193,UCSRC:194,UBRRL:196,UBRRH:197,UDR:198};var Wi=128,Ni=64,Ie=32,Mt=2,Hi=1,Te=Mt,ji=128,Ki=64,Li=32,ft=16,ht=8,be=4,ye=be|ft|ht,qi=32,Xi=16,Gi=8,Se=4,Ae=2,zi={5:31,6:63,7:127,8:255,9:255},vt=class{constructor(t,i,s){this.cpu=t,this.config=i,this.freqHz=s,this.onByteTransmit=null,this.onLineTransmit=null,this.onRxComplete=null,this.onConfigurationChange=null,this.rxBusyValue=!1,this.rxByte=0,this.lineBuffer="",this.RXC={address:this.config.rxCompleteInterrupt,flagRegister:this.config.UCSRA,flagMask:Wi,enableRegister:this.config.UCSRB,enableMask:ji,constant:!0},this.UDRE={address:this.config.dataRegisterEmptyInterrupt,flagRegister:this.config.UCSRA,flagMask:Ie,enableRegister:this.config.UCSRB,enableMask:Li},this.TXC={address:this.config.txCompleteInterrupt,flagRegister:this.config.UCSRA,flagMask:Ni,enableRegister:this.config.UCSRB,enableMask:Ki},this.reset(),this.cpu.writeHooks[i.UCSRA]=(r,n)=>{var a;return t.data[i.UCSRA]=r&(Hi|Mt),t.clearInterruptByFlag(this.TXC,r),(r&Te)!==(n&Te)&&((a=this.onConfigurationChange)===null||a===void 0||a.call(this)),!0},this.cpu.writeHooks[i.UCSRB]=(r,n)=>{var a;return t.updateInterruptEnable(this.RXC,r),t.updateInterruptEnable(this.UDRE,r),t.updateInterruptEnable(this.TXC,r),r&ft&&n&ft&&t.clearInterrupt(this.RXC),r&ht&&!(n&ht)&&t.setInterruptFlag(this.UDRE),t.data[i.UCSRB]=r,(r&ye)!==(n&ye)&&((a=this.onConfigurationChange)===null||a===void 0||a.call(this)),!0},this.cpu.writeHooks[i.UCSRC]=r=>{var n;return t.data[i.UCSRC]=r,(n=this.onConfigurationChange)===null||n===void 0||n.call(this),!0},this.cpu.readHooks[i.UDR]=()=>{var r;let n=(r=zi[this.bitsPerChar])!==null&&r!==void 0?r:255,a=this.rxByte&n;return this.rxByte=0,this.cpu.clearInterrupt(this.RXC),a},this.cpu.writeHooks[i.UDR]=r=>{if(this.onByteTransmit&&this.onByteTransmit(r),this.onLineTransmit){let n=String.fromCharCode(r);n===`
+`?(this.onLineTransmit(this.lineBuffer),this.lineBuffer=""):this.lineBuffer+=n}this.cpu.addClockEvent(()=>{t.setInterruptFlag(this.UDRE),t.setInterruptFlag(this.TXC)},this.cyclesPerChar),this.cpu.clearInterrupt(this.TXC),this.cpu.clearInterrupt(this.UDRE)},this.cpu.writeHooks[i.UBRRH]=r=>{var n;return this.cpu.data[i.UBRRH]=r,(n=this.onConfigurationChange)===null||n===void 0||n.call(this),!0},this.cpu.writeHooks[i.UBRRL]=r=>{var n;return this.cpu.data[i.UBRRL]=r,(n=this.onConfigurationChange)===null||n===void 0||n.call(this),!0}}reset(){this.cpu.data[this.config.UCSRA]=Ie,this.cpu.data[this.config.UCSRB]=0,this.cpu.data[this.config.UCSRC]=Se|Ae,this.rxBusyValue=!1,this.rxByte=0,this.lineBuffer=""}get rxBusy(){return this.rxBusyValue}writeByte(t,i=!1){var s;let{cpu:r}=this;if(this.rxBusyValue||!this.rxEnable)return!1;if(i)this.rxByte=t,r.setInterruptFlag(this.RXC),(s=this.onRxComplete)===null||s===void 0||s.call(this);else return this.rxBusyValue=!0,r.addClockEvent(()=>{this.rxBusyValue=!1,this.writeByte(t,!0)},this.cyclesPerChar),!0}get cyclesPerChar(){let t=1+this.bitsPerChar+this.stopBits+(this.parityEnabled?1:0);return(this.UBRR+1)*this.multiplier*t}get UBRR(){let{UBRRH:t,UBRRL:i}=this.config;return this.cpu.data[t]<<8|this.cpu.data[i]}get multiplier(){return this.cpu.data[this.config.UCSRA]&Mt?8:16}get rxEnable(){return!!(this.cpu.data[this.config.UCSRB]&ft)}get txEnable(){return!!(this.cpu.data[this.config.UCSRB]&ht)}get baudRate(){return Math.floor(this.freqHz/(this.multiplier*(1+this.UBRR)))}get bitsPerChar(){switch((this.cpu.data[this.config.UCSRC]&(Se|Ae))>>1|this.cpu.data[this.config.UCSRB]&be){case 0:return 5;case 1:return 6;case 2:return 7;case 3:return 8;default:case 7:return 9}}get stopBits(){return this.cpu.data[this.config.UCSRC]&Gi?2:1}get parityEnabled(){return!!(this.cpu.data[this.config.UCSRC]&qi)}get parityOdd(){return!!(this.cpu.data[this.config.UCSRC]&Xi)}};z.AVRUSART=vt});var De=S(dt=>{"use strict";Object.defineProperty(dt,"__esModule",{value:!0});dt.AVRUSI=void 0;var et=45,B=46,J=47,Ji=48,Oe=15,Be=16,Ee=32,ke=64,Ue=128,Me=1,ve=2,Zi=4,Qi=8,Yi=16,Dt=32,$i=64,ts=128,Vt=class{constructor(t,i,s,r,n){this.START={address:13,flagRegister:B,flagMask:Ue,enableRegister:et,enableMask:ts},this.OVF={address:14,flagRegister:B,flagMask:ke,enableRegister:et,enableMask:$i};let a=s,c=a+2;i.addListener(h=>{(t.data[et]&Dt)===Dt&&(h&1<<n&&!(h&1<<r)&&t.setInterruptFlag(this.START),h&1<<n&&h&1<<r&&(t.data[B]|=Ee))});let u=()=>{let h=t.data[c],f=t.data[J]&128?h|1<<r:h&~(1<<r);t.writeHooks[c](f,h,c,255),f&128&&!(t.data[a]&128)?t.data[B]|=Be:t.data[B]&=~Be},m=()=>{let h=t.data[B]+1&Oe;t.data[B]=t.data[B]&~Oe|h,h||(t.data[Ji]=t.data[J],t.setInterruptFlag(this.OVF))},C=h=>{t.data[J]=t.data[J]<<1|h,u()};t.writeHooks[J]=h=>(t.data[J]=h,u(),!0),t.writeHooks[B]=h=>{let f=Ue|ke|Ee;return t.data[B]=t.data[B]&f&~h|h&15,t.clearInterruptByFlag(this.START,h),t.clearInterruptByFlag(this.OVF,h),!0},t.writeHooks[et]=h=>{t.data[et]=h&~(ve|Me),t.updateInterruptEnable(this.START,h),t.updateInterruptEnable(this.OVF,h);let f=h&(Qi|Zi)>>2,I=h&(Dt|Yi)>>4,l=h&ve;i.openCollector=I>=2?1<<r:0;let P=t.data[a]&1<<r?1:0;if(l&&!f&&(C(P),m()),h&Me){t.writeHooks[a](1<<n,t.data[a],a,255);let g=t.data[a]&1<<n;return l&&(f===2||f===3)&&(f===2&&g&&C(P),f===3&&!g&&C(P),m()),!0}}}};dt.AVRUSI=Vt});var Fe=S(Z=>{"use strict";Object.defineProperty(Z,"__esModule",{value:!0});Z.AVRWatchdog=Z.watchdogConfig=void 0;var es=8,is=128,it=64,Ve=32,ss=16,lt=8,rs=4,ns=2,as=1,_e=rs|ns|as,_t=lt|Ve|_e;Z.watchdogConfig={watchdogInterrupt:12,MCUSR:84,WDTCSR:96};var Ft=class{constructor(t,i,s){this.cpu=t,this.config=i,this.clock=s,this.clockFrequency=128e3,this.changeEnabledCycles=0,this.watchdogTimeout=0,this.enabledValue=!1,this.scheduled=!1,this.Watchdog={address:this.config.watchdogInterrupt,flagRegister:this.config.WDTCSR,flagMask:is,enableRegister:this.config.WDTCSR,enableMask:it},this.checkWatchdog=()=>{if(this.enabled&&this.cpu.cycles>=this.watchdogTimeout){let n=this.cpu.data[this.config.WDTCSR];if(n&it&&this.cpu.setInterruptFlag(this.Watchdog),n&lt)if(n&it)this.cpu.data[this.config.WDTCSR]&=~it;else{this.cpu.reset(),this.scheduled=!1,this.cpu.data[this.config.MCUSR]|=es;return}this.resetWatchdog()}this.enabled?(this.scheduled=!0,this.cpu.addClockEvent(this.checkWatchdog,this.watchdogTimeout-this.cpu.cycles)):this.scheduled=!1};let{WDTCSR:r}=i;this.cpu.onWatchdogReset=()=>{this.resetWatchdog()},t.writeHooks[r]=(n,a)=>(n&ss&&n&lt?(this.changeEnabledCycles=this.cpu.cycles+4,n=n&~_t):(this.cpu.cycles>=this.changeEnabledCycles&&(n=n&~_t|a&_t),this.enabledValue=!!(n&lt||n&it),this.cpu.data[r]=n),this.enabled&&this.resetWatchdog(),this.enabled&&!this.scheduled&&this.cpu.addClockEvent(this.checkWatchdog,this.watchdogTimeout-this.cpu.cycles),this.cpu.clearInterruptByFlag(this.Watchdog,n),!0)}resetWatchdog(){let t=Math.floor(this.clock.frequency/this.clockFrequency*this.prescaler);this.watchdogTimeout=this.cpu.cycles+t}get enabled(){return this.enabledValue}get prescaler(){let t=this.cpu.data[this.config.WDTCSR];return 2048<<((t&Ve)>>2|t&_e)}};Z.AVRWatchdog=Ft});var xs=S(o=>{var os=o&&o.__createBinding||(Object.create?(function(e,t,i,s){s===void 0&&(s=i);var r=Object.getOwnPropertyDescriptor(t,i);(!r||("get"in r?!t.__esModule:r.writable||r.configurable))&&(r={enumerable:!0,get:function(){return t[i]}}),Object.defineProperty(e,s,r)}):(function(e,t,i,s){s===void 0&&(s=i),e[s]=t[i]})),cs=o&&o.__exportStar||function(e,t){for(var i in e)i!=="default"&&!Object.prototype.hasOwnProperty.call(t,i)&&os(t,e,i)};Object.defineProperty(o,"__esModule",{value:!0});o.watchdogConfig=o.AVRWatchdog=o.AVRUSI=o.usart0Config=o.AVRUSART=o.attinyTimer1Config=o.ATtinyTimer1=o.timer2Config=o.timer1Config=o.timer0Config=o.AVRTimer=o.spiConfig=o.AVRSPI=o.portLConfig=o.portKConfig=o.portJConfig=o.portHConfig=o.portGConfig=o.portFConfig=o.portEConfig=o.portDConfig=o.portCConfig=o.portBConfig=o.portAConfig=o.PinState=o.PCINT2=o.PCINT1=o.PCINT0=o.INT1=o.INT0=o.AVRIOPort=o.eepromConfig=o.EEPROMMemoryBackend=o.AVREEPROM=o.clockConfig=o.AVRClock=o.atmega328Channels=o.adcConfig=o.AVRADC=o.ADCReference=o.ADCMuxInputType=o.avrInterrupt=o.avrInstruction=o.CPU=void 0;var fs=Kt();Object.defineProperty(o,"CPU",{enumerable:!0,get:function(){return fs.CPU}});var hs=Lt();Object.defineProperty(o,"avrInstruction",{enumerable:!0,get:function(){return hs.avrInstruction}});var ds=ut();Object.defineProperty(o,"avrInterrupt",{enumerable:!0,get:function(){return ds.avrInterrupt}});var st=Xt();Object.defineProperty(o,"ADCMuxInputType",{enumerable:!0,get:function(){return st.ADCMuxInputType}});Object.defineProperty(o,"ADCReference",{enumerable:!0,get:function(){return st.ADCReference}});Object.defineProperty(o,"AVRADC",{enumerable:!0,get:function(){return st.AVRADC}});Object.defineProperty(o,"adcConfig",{enumerable:!0,get:function(){return st.adcConfig}});Object.defineProperty(o,"atmega328Channels",{enumerable:!0,get:function(){return st.atmega328Channels}});var We=Gt();Object.defineProperty(o,"AVRClock",{enumerable:!0,get:function(){return We.AVRClock}});Object.defineProperty(o,"clockConfig",{enumerable:!0,get:function(){return We.clockConfig}});var Wt=$t();Object.defineProperty(o,"AVREEPROM",{enumerable:!0,get:function(){return Wt.AVREEPROM}});Object.defineProperty(o,"EEPROMMemoryBackend",{enumerable:!0,get:function(){return Wt.EEPROMMemoryBackend}});Object.defineProperty(o,"eepromConfig",{enumerable:!0,get:function(){return Wt.eepromConfig}});var y=nt();Object.defineProperty(o,"AVRIOPort",{enumerable:!0,get:function(){return y.AVRIOPort}});Object.defineProperty(o,"INT0",{enumerable:!0,get:function(){return y.INT0}});Object.defineProperty(o,"INT1",{enumerable:!0,get:function(){return y.INT1}});Object.defineProperty(o,"PCINT0",{enumerable:!0,get:function(){return y.PCINT0}});Object.defineProperty(o,"PCINT1",{enumerable:!0,get:function(){return y.PCINT1}});Object.defineProperty(o,"PCINT2",{enumerable:!0,get:function(){return y.PCINT2}});Object.defineProperty(o,"PinState",{enumerable:!0,get:function(){return y.PinState}});Object.defineProperty(o,"portAConfig",{enumerable:!0,get:function(){return y.portAConfig}});Object.defineProperty(o,"portBConfig",{enumerable:!0,get:function(){return y.portBConfig}});Object.defineProperty(o,"portCConfig",{enumerable:!0,get:function(){return y.portCConfig}});Object.defineProperty(o,"portDConfig",{enumerable:!0,get:function(){return y.portDConfig}});Object.defineProperty(o,"portEConfig",{enumerable:!0,get:function(){return y.portEConfig}});Object.defineProperty(o,"portFConfig",{enumerable:!0,get:function(){return y.portFConfig}});Object.defineProperty(o,"portGConfig",{enumerable:!0,get:function(){return y.portGConfig}});Object.defineProperty(o,"portHConfig",{enumerable:!0,get:function(){return y.portHConfig}});Object.defineProperty(o,"portJConfig",{enumerable:!0,get:function(){return y.portJConfig}});Object.defineProperty(o,"portKConfig",{enumerable:!0,get:function(){return y.portKConfig}});Object.defineProperty(o,"portLConfig",{enumerable:!0,get:function(){return y.portLConfig}});var Ne=ee();Object.defineProperty(o,"AVRSPI",{enumerable:!0,get:function(){return Ne.AVRSPI}});Object.defineProperty(o,"spiConfig",{enumerable:!0,get:function(){return Ne.spiConfig}});var xt=ne();Object.defineProperty(o,"AVRTimer",{enumerable:!0,get:function(){return xt.AVRTimer}});Object.defineProperty(o,"timer0Config",{enumerable:!0,get:function(){return xt.timer0Config}});Object.defineProperty(o,"timer1Config",{enumerable:!0,get:function(){return xt.timer1Config}});Object.defineProperty(o,"timer2Config",{enumerable:!0,get:function(){return xt.timer2Config}});var He=fe();Object.defineProperty(o,"ATtinyTimer1",{enumerable:!0,get:function(){return He.ATtinyTimer1}});Object.defineProperty(o,"attinyTimer1Config",{enumerable:!0,get:function(){return He.attinyTimer1Config}});cs(Pe(),o);var je=we();Object.defineProperty(o,"AVRUSART",{enumerable:!0,get:function(){return je.AVRUSART}});Object.defineProperty(o,"usart0Config",{enumerable:!0,get:function(){return je.usart0Config}});var ls=De();Object.defineProperty(o,"AVRUSI",{enumerable:!0,get:function(){return ls.AVRUSI}});var Ke=Fe();Object.defineProperty(o,"AVRWatchdog",{enumerable:!0,get:function(){return Ke.AVRWatchdog}});Object.defineProperty(o,"watchdogConfig",{enumerable:!0,get:function(){return Ke.watchdogConfig}})});return xs();})();
+
+;window.AVR8 = AVR8;
+</script>
+<script>
+/* ===== Sekiz core: assembler + disassembler + runner (MIT) ===== */
+var AVRLAB_CORE=(()=>{var X=(e,r)=>()=>{try{return r||e((r={exports:{}}).exports,r),r.exports}catch(t){throw r=0,t}};var H=X((X0,P)=>{"use strict";var K={xl:26,xh:27,yl:28,yh:29,zl:30,zh:31};function k(e){if(e==null)return null;let r=e.trim().toLowerCase();if(K[r]!==void 0)return K[r];let t=/^r(\d{1,2})$/.exec(r);if(!t)return null;let c=parseInt(t[1],10);return c<=31?c:null}function f0(e){let r=[],t=0,c=n=>/[A-Za-z0-9_$.]/.test(n);for(;t<e.length;){let n=e[t];if(n===" "||n==="	"){t++;continue}if(n==="'"){let i,x=t+1;if(e[x]==="\\"){if(i={n:10,r:13,t:9,0:0,"\\":92,"'":39,'"':34}[e[x+1]],i===void 0)throw new Error("bad escape in char literal");x+=2}else i=e.charCodeAt(x),x+=1;if(e[x]!=="'")throw new Error("unterminated char literal");r.push({t:"num",v:i}),t=x+1;continue}if(n==="$"&&/[0-9A-Fa-f]/.test(e[t+1]||"")){let i=t+1,x="";for(;i<e.length&&/[0-9A-Fa-f]/.test(e[i]);)x+=e[i++];r.push({t:"num",v:parseInt(x,16)}),t=i;continue}if(/[0-9]/.test(n)){let i=t,x="";for(;i<e.length&&/[0-9A-Fa-fxXbB_]/.test(e[i]);)x+=e[i++];x=x.replace(/_/g,"");let f;if(/^0[xX]/.test(x))f=parseInt(x,16);else if(/^0[bB][01]+$/.test(x))f=parseInt(x.slice(2),2);else if(/^[0-9]+$/.test(x))f=parseInt(x,10);else throw new Error("bad number: "+x);r.push({t:"num",v:f}),t=i;continue}if(/[A-Za-z_.]/.test(n)){let i=t,x="";for(;i<e.length&&c(e[i]);)x+=e[i++];r.push({t:"id",v:x}),t=i;continue}if(n==="<"&&e[t+1]==="<"){r.push({t:"op",v:"<<"}),t+=2;continue}if(n===">"&&e[t+1]===">"){r.push({t:"op",v:">>"}),t+=2;continue}if("+-*/%&|^~()".includes(n)){r.push({t:"op",v:n}),t++;continue}throw new Error("unexpected character '"+n+"' in expression")}return r}function l0(e,r,t){let c=f0(e),n=0,i=()=>c[n],x=()=>c[n++];function f(){let s=x();if(!s)throw new Error("unexpected end of expression");if(s.t==="num")return s.v;if(s.t==="op"&&s.v==="("){let a=u(),F=x();if(!F||F.v!==")")throw new Error("missing ')'");return a}if(s.t==="op"&&s.v==="-")return-f();if(s.t==="op"&&s.v==="~")return~f();if(s.t==="op"&&s.v==="+")return f();if(s.t==="id"){let a=s.v,F=a.toLowerCase();if((F==="lo8"||F==="low"||F==="hi8"||F==="high"||F==="byte3"||F==="hh8")&&i()&&i().v==="("){x();let g=u(),B=x();if(!B||B.v!==")")throw new Error("missing ')' after "+a);return F==="lo8"||F==="low"?g&255:F==="hi8"||F==="high"?g>>8&255:g>>16&255}if(a===".")return t;if(r.has(a))return r.get(a);throw new Error("undefined symbol '"+a+"'")}throw new Error("unexpected token in expression")}function h(){let s=f();for(;i()&&i().t==="op"&&["*","/","%"].includes(i().v);){let a=x().v,F=f();a==="*"?s*=F:a==="/"?s=Math.trunc(s/F):s%=F}return s}function v(){let s=h();for(;i()&&i().t==="op"&&["+","-"].includes(i().v);){let a=x().v,F=h();s=a==="+"?s+F:s-F}return s}function p(){let s=v();for(;i()&&i().t==="op"&&["<<",">>"].includes(i().v);){let a=x().v,F=v();s=a==="<<"?s<<F:s>>F}return s}function b(){let s=p();for(;i()&&i().v==="&";)x(),s&=p();return s}function w(){let s=b();for(;i()&&i().v==="^";)x(),s^=b();return s}function u(){let s=w();for(;i()&&i().v==="|";)x(),s|=w();return s}let l=u();if(n!==c.length)throw new Error("trailing junk in expression");return l}function z(e){return(e&31)<<4}function G(e){return(e&16)<<5|e&15}function j(e,r,t,c){if(e<r||e>t)throw new Error(c+" out of range ("+r+".."+t+"): "+e);return e}function I(e,r,t){if(e==null)throw new Error(t+": expected a register");if(e<r)throw new Error(t+": register must be r"+r+"..r31");return e}function V(e,r,t,c){if(e&1)throw new Error(c+": branch target must be even (byte address)");let n=(e-r-2)/2,i=1<<t-1;if(n<-i||n>=i)throw new Error(c+": target out of range ("+n+" words)");return n&(1<<t)-1}function p0(e){return(r,t)=>{let c=I(k(r[0]),0,"Rd"),n=I(k(r[1]),0,"Rr");return[e|z(c)|G(n)]}}function a0(e){return(r,t)=>{let c=I(k(r[0]),16,"Rd"),n=t.ev(r[1]);if(n<-128||n>255)throw new Error("K out of range (-128..255): "+n);return n&=255,[e|(n&240)<<4|c-16<<4|n&15]}}function F0(e,r){return t=>{let c=I(k(t[0]),0,"Rd");return[e|z(c)|r]}}function d0(e){return(r,t)=>{let c=r[0];c.includes(":")&&(c=c.split(":")[1]);let n=k(c);if(![24,26,28,30].includes(n))throw new Error("register must be r24/r26/r28/r30 (pair low)");let i=j(t.ev(r[1]),0,63,"K");return[e|(i&48)<<2|(n-24)/2<<4|i&15]}}function m0(e){return(r,t)=>{let c=j(t.ev(r[0]),0,31,"I/O address"),n=j(t.ev(r[1]),0,7,"bit");return[e|c<<3|n]}}function h0(e,r){return(t,c)=>{let n=c.ev(t[0]),i=V(n,c.pcByte,7,"branch");return[(r?61440:62464)|i<<3|e]}}function g0(e){return(r,t)=>{let c=e?r[1]:r[0],n=(e?r[0]:r[1]).replace(/\s+/g,""),i=I(k(c),0,e?"Rr":"Rd"),x=e?512:0,f=n.toUpperCase(),h={Z:[32768,0],"Z+":[36864,1],"-Z":[36864,2],Y:[32776,0],"Y+":[36872,1],"-Y":[36872,2],X:[36876,0],"X+":[36876,1],"-X":[36876,2]};if(h[f]){let[p,b]=h[f];if(f[0]==="X"||f==="-X")return p=36876+(f==="X"?0:f==="X+"?1:2),[p|x|z(i)];if(b!==0&&p<36864)throw new Error("internal");return[p+(p>=36864?b:0)|x|z(i)]}let v=/^([YZ])\+(.+)$/i.exec(n);if(v){let p=j(t.ev(v[2]),0,63,"displacement q"),b=v[1].toUpperCase()==="Y"?8:0;return[32768|x|z(i)|b|(p&32)<<8|(p&24)<<7|p&7]}throw new Error("bad memory operand '"+n+"'")}}P.exports={parseReg:k,evalExpr:l0,encRd:z,encRr:G,chkRange:j,chkReg:I,relOff:V,twoRegOp:p0,immOp:a0,oneRegOp:F0,wideImmOp:d0,ioBitOp:m0,branchOp:h0,ldStXYZ:g0}});var e0=X((j0,t0)=>{"use strict";var m=H(),{parseReg:E,evalExpr:L,encRd:A,encRr:b0,chkRange:y,chkReg:O,relOff:Q}=m,J={Z:32768,"Z+":36865,"-Z":36866,Y:32776,"Y+":36873,"-Y":36874,X:36876,"X+":36877,"-X":36878};function _(e){return(r,t)=>{let c=e?r[1]:r[0],n=(e?r[0]:r[1]).replace(/\s+/g,""),i=O(E(c),0,e?"Rr":"Rd"),x=e?512:0,f=n.toUpperCase();if(J[f]!==void 0)return[J[f]|x|A(i)];let h=/^([YZ])\+(.+)$/i.exec(n);if(h){let v=y(t.ev(h[2]),0,63,"displacement q"),p=h[1].toUpperCase()==="Y"?8:0;return[32768|x|A(i)|p|(v&32)<<8|(v&24)<<7|v&7]}throw new Error("bad memory operand '"+n+"'")}}var Y={};function o(e,r,t){Y[e]={words:r,enc:t}}o("add",1,m.twoRegOp(3072));o("adc",1,m.twoRegOp(7168));o("sub",1,m.twoRegOp(6144));o("sbc",1,m.twoRegOp(2048));o("and",1,m.twoRegOp(8192));o("or",1,m.twoRegOp(10240));o("eor",1,m.twoRegOp(9216));o("mov",1,m.twoRegOp(11264));o("cp",1,m.twoRegOp(5120));o("cpc",1,m.twoRegOp(1024));o("cpse",1,m.twoRegOp(4096));o("mul",1,m.twoRegOp(39936));function q(e){return r=>{let t=O(E(r[0]),0,"Rd");return[e|A(t)|b0(t)]}}o("tst",1,q(8192));o("clr",1,q(9216));o("lsl",1,q(3072));o("rol",1,q(7168));o("cpi",1,m.immOp(12288));o("sbci",1,m.immOp(16384));o("subi",1,m.immOp(20480));o("ori",1,m.immOp(24576));o("andi",1,m.immOp(28672));o("ldi",1,m.immOp(57344));o("sbr",1,m.immOp(24576));o("cbr",1,(e,r)=>m.immOp(28672)([e[0],String(~r.ev(e[1])&255)],r));o("ser",1,e=>[61199|O(E(e[0]),16,"Rd")-16<<4]);o("com",1,m.oneRegOp(37888,0));o("neg",1,m.oneRegOp(37888,1));o("swap",1,m.oneRegOp(37888,2));o("inc",1,m.oneRegOp(37888,3));o("asr",1,m.oneRegOp(37888,5));o("lsr",1,m.oneRegOp(37888,6));o("ror",1,m.oneRegOp(37888,7));o("dec",1,m.oneRegOp(37888,10));o("push",1,m.oneRegOp(37376,15));o("pop",1,m.oneRegOp(36864,15));o("muls",1,e=>{let r=O(E(e[0]),16,"Rd"),t=O(E(e[1]),16,"Rr");return[512|r-16<<4|t-16]});function M(e){return r=>{let t=E(r[0]),c=E(r[1]);if(t==null||c==null||t<16||t>23||c<16||c>23)throw new Error("registers must be r16..r23");return[e|t-16<<4|c-16]}}o("mulsu",1,M(768));o("fmul",1,M(776));o("fmuls",1,M(896));o("fmulsu",1,M(904));o("movw",1,e=>{let r=e[0].includes(":")?E(e[0].split(":")[1]):E(e[0]),t=e[1].includes(":")?E(e[1].split(":")[1]):E(e[1]);if(r==null||t==null||r&1||t&1)throw new Error("movw needs even registers (pairs)");return[256|r/2<<4|t/2]});o("adiw",1,m.wideImmOp(38400));o("sbiw",1,m.wideImmOp(38656));o("in",1,(e,r)=>{let t=O(E(e[0]),0,"Rd"),c=y(r.ev(e[1]),0,63,"I/O address");return[45056|(c&48)<<5|A(t)|c&15]});o("out",1,(e,r)=>{let t=y(r.ev(e[0]),0,63,"I/O address"),c=O(E(e[1]),0,"Rr");return[47104|(t&48)<<5|A(c)|t&15]});o("sbi",1,m.ioBitOp(39424));o("cbi",1,m.ioBitOp(38912));o("sbic",1,m.ioBitOp(39168));o("sbis",1,m.ioBitOp(39680));function $(e){return(r,t)=>{let c=O(E(r[0]),0,"Rr"),n=y(t.ev(r[1]),0,7,"bit");return[e|A(c)|n]}}o("sbrc",1,$(64512));o("sbrs",1,$(65024));o("bst",1,$(64e3));o("bld",1,$(63488));o("bset",1,(e,r)=>[37896|y(r.ev(e[0]),0,7,"flag")<<4]);o("bclr",1,(e,r)=>[38024|y(r.ev(e[0]),0,7,"flag")<<4]);var w0={c:0,z:1,n:2,v:3,s:4,h:5,t:6,i:7};for(let[e,r]of Object.entries(w0))o("se"+e,1,()=>[37896|r<<4]),o("cl"+e,1,()=>[38024|r<<4]);o("rjmp",1,(e,r)=>[49152|Q(r.ev(e[0]),r.pcByte,12,"rjmp")&4095]);o("rcall",1,(e,r)=>[53248|Q(r.ev(e[0]),r.pcByte,12,"rcall")&4095]);o("brbs",1,(e,r)=>m.branchOp(y(r.ev(e[0]),0,7,"flag"),!0)([e[1]],r));o("brbc",1,(e,r)=>m.branchOp(y(r.ev(e[0]),0,7,"flag"),!1)([e[1]],r));var v0={breq:[1,1],brne:[1,0],brcs:[0,1],brlo:[0,1],brcc:[0,0],brsh:[0,0],brmi:[2,1],brpl:[2,0],brvs:[3,1],brvc:[3,0],brlt:[4,1],brge:[4,0],brhs:[5,1],brhc:[5,0],brts:[6,1],brtc:[6,0],brie:[7,1],brid:[7,0]};for(let[e,[r,t]]of Object.entries(v0))o(e,1,m.branchOp(r,!!t));function W(e){return(r,t)=>{let c=t.ev(r[0]);if(c&1)throw new Error("target must be even byte address");let n=c>>1;return y(n,0,4194303,"target"),[e|(n>>17&31)<<4|n>>16&1,n&65535]}}o("jmp",2,W(37900));o("call",2,W(37902));o("lds",2,(e,r)=>{let t=O(E(e[0]),0,"Rd");return[36864|A(t),y(r.ev(e[1]),0,65535,"address")]});o("sts",2,(e,r)=>{let t=O(E(e[1]),0,"Rr");return[37376|A(t),y(r.ev(e[0]),0,65535,"address")]});o("ld",1,_(!1));o("st",1,_(!0));o("ldd",1,_(!1));o("std",1,_(!0));o("lpm",1,e=>{if(e.length===0)return[38344];let r=O(E(e[0]),0,"Rd"),t=e[1].replace(/\s+/g,"").toUpperCase();if(t==="Z")return[36868|A(r)];if(t==="Z+")return[36869|A(r)];throw new Error("lpm needs Z or Z+")});o("spm",1,()=>[38376]);o("ijmp",1,()=>[37897]);o("icall",1,()=>[38153]);o("ret",1,()=>[38152]);o("reti",1,()=>[38168]);o("nop",1,()=>[0]);o("sleep",1,()=>[38280]);o("wdr",1,()=>[38312]);o("break",1,()=>[38296]);function E0(e){let r="",t=0,c=!1,n=!1;for(;t<e.length;){let i=e[t];if(c){r+=i,i==="\\"?r+=e[++t]||"":i==="'"&&(c=!1),t++;continue}if(n){r+=i,i==="\\"?r+=e[++t]||"":i==='"'&&(n=!1),t++;continue}if(i==="'"){c=!0,r+=i,t++;continue}if(i==='"'){n=!0,r+=i,t++;continue}if(i===";"||i==="/"&&e[t+1]==="/")break;if(i==="/"&&e[t+1]==="*"){let x=e.indexOf("*/",t+2);if(x<0)break;t=x+2;continue}r+=i,t++}return r}function S(e){let r=[],t="",c=0,n=!1,i=!1;for(let x=0;x<e.length;x++){let f=e[x];if(n){t+=f,f==="\\"?t+=e[++x]||"":f==="'"&&(n=!1);continue}if(i){t+=f,f==="\\"?t+=e[++x]||"":f==='"'&&(i=!1);continue}if(f==="'"){n=!0,t+=f;continue}if(f==='"'){i=!0,t+=f;continue}if(f==="("&&c++,f===")"&&c--,f===","&&c===0){r.push(t.trim()),t="";continue}t+=f}return t.trim()!==""&&r.push(t.trim()),r}function T(e){let r=/^"((?:[^"\\]|\\.)*)"$/.exec(e.trim());if(!r)return null;let t={n:`
+`,r:"\r",t:"	",0:"\0","\\":"\\",'"':'"',"'":"'"};return r[1].replace(/\\(.)/g,(c,n)=>t[n]!==void 0?t[n]:n)}function C0(e){let r=e.split(/\r?\n/),t=new Map,c=[],n=new Set([".text",".section",".global",".globl",".balign",".align",".cseg",".device",".list",".nolist",".end"]);function i(u){let l=E0(u).trim(),s={labels:[],mnem:null,ops:[],directive:null,dops:null},a;for(;a=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*:/.exec(l);)s.labels.push(a[1]),l=l.slice(a[0].length).trim();if(l==="")return s;if(l[0]==="."){let g=l.search(/\s/);return s.directive=(g<0?l:l.slice(0,g)).toLowerCase(),s.dops=g<0?"":l.slice(g+1).trim(),s}let F=l.search(/[\s]/);return s.mnem=(F<0?l:l.slice(0,F)).toLowerCase(),s.ops=F<0?[]:S(l.slice(F+1)),s}function x(u,l,s){if(u===".org")return{org:s(l)};if(u===".db"||u===".byte"||u===".ascii"||u===".asciz"||u===".string"){let a=0;for(let F of S(l)){let g=T(F);a+=g!==null?g.length:1}return(u===".asciz"||u===".string")&&(a+=0),{bytes:a}}return u===".dw"||u===".word"?{bytes:S(l).length*2}:null}let f=0,h=[];for(let u=0;u<r.length;u++){let l;try{l=i(r[u])}catch(s){c.push({line:u+1,msg:s.message});continue}l.srcLine=u+1,l.raw=r[u];for(let s of l.labels)t.has(s)&&c.push({line:u+1,msg:"duplicate label '"+s+"'"}),t.set(s,f);if(l.directive){let s=l.directive;if(s===".equ"||s===".set"){let a=/^([A-Za-z_.$][A-Za-z0-9_.$]*)\s*[=,]\s*(.+)$/.exec(l.dops);if(!a)c.push({line:u+1,msg:s+" needs NAME = value"});else try{t.set(a[1],L(a[2],t,f))}catch(F){c.push({line:u+1,msg:F.message})}h.push(l);continue}if(n.has(s)){h.push(l);continue}if(s===".org"){try{f=L(l.dops,t,f),f&1&&f++}catch(a){c.push({line:u+1,msg:a.message})}l.orgByte=f,h.push(l);continue}if(s===".db"||s===".byte"||s===".ascii"||s===".asciz"||s===".string"||s===".dw"||s===".word"){let a=0;try{for(let F of S(l.dops)){let g=T(F);g!==null?a+=g.length+(s===".asciz"||s===".string"?1:0):a+=s===".dw"||s===".word"?2:1}}catch(F){c.push({line:u+1,msg:F.message})}l.dataBytes=a,l.pcByte=f,f+=a,f&1&&f++,h.push(l);continue}c.push({line:u+1,msg:"unknown directive "+s}),h.push(l);continue}if(l.mnem){let s=Y[l.mnem];if(!s){c.push({line:u+1,msg:"unknown instruction '"+l.mnem+"'"}),h.push(l);continue}l.pcByte=f,f+=2*s.words,h.push(l);continue}h.push(l)}let v=32768,p=new Uint16Array(v/2).fill(65535),b=[],w=0;for(let u of h){if(u.directive){let s=u.directive;if(u.dataBytes!==void 0){let a=[];try{for(let g of S(u.dops)){let B=T(g);if(B!==null){for(let Z of B)a.push(Z.charCodeAt(0)&255);(s===".asciz"||s===".string")&&a.push(0)}else if(s===".dw"||s===".word"){let Z=L(g,t,u.pcByte)&65535;a.push(Z&255,Z>>8)}else a.push(L(g,t,u.pcByte)&255)}}catch(g){c.push({line:u.srcLine,msg:g.message});continue}a.length&1&&a.push(0);let F=[];for(let g=0;g<a.length;g+=2)F.push(a[g]|a[g+1]<<8);F.forEach((g,B)=>{p[(u.pcByte>>1)+B]=g}),w=Math.max(w,(u.pcByte>>1)+F.length),b.push({addr:u.pcByte,words:F,src:u.raw,line:u.srcLine})}continue}if(!u.mnem||!Y[u.mnem]||u.pcByte===void 0)continue;let l={pcByte:u.pcByte,ev:s=>L(s,t,u.pcByte+2)};try{let s=Y[u.mnem].enc(u.ops,l);s.forEach((a,F)=>{p[(u.pcByte>>1)+F]=a&65535}),w=Math.max(w,(u.pcByte>>1)+s.length),b.push({addr:u.pcByte,words:s,src:u.raw,line:u.srcLine})}catch(s){c.push({line:u.srcLine,msg:s.message})}}return{flash:p,words:p.slice(0,Math.max(w,1)),listing:b,errors:c,symbols:t}}t0.exports={assemble:C0,TABLE:Y}});var r0=X((L0,D)=>{"use strict";function R0(e,r){let{CPU:t,avrInstruction:c,AVRIOPort:n,portBConfig:i,portCConfig:x,portDConfig:f,AVRTimer:h,timer0Config:v,timer1Config:p,timer2Config:b,AVRUSART:w,usart0Config:u}=e,l=new Uint16Array(32768/2);l.set(r.subarray?r.subarray(0,l.length):r.slice(0,l.length));let s=new t(l),a=new n(s,i),F=new n(s,x),g=new n(s,f),B=new h(s,v),Z=new h(s,p),o0=new h(s,b),c0=new w(s,u,16e6);return{cpu:s,portB:a,portC:F,portD:g,usart:c0,timer0:B,timer1:Z,timer2:o0,step(){c(s),s.tick()},run(x0){let u0=s.cycles+x0;for(;s.cycles<u0;)c(s),s.tick()}}}typeof D<"u"&&(D.exports={createRunner:R0})});var i0=X((S0,N)=>{"use strict";function d(e){return e>>4&31}function R(e){return e>>5&16|e&15}function O0(e){return e>>4&240|e&15}function U(e,r){let t=1<<r-1;return(e&t-1)-(e&t)}function C(e,r){return"0x"+(e>>>0).toString(16).padStart(r||2,"0")}function n0(e,r){let t=e[r],c=e[r+1]|0,n=p=>"r"+p,i=p=>({text:p,size:1}),x=p=>({text:p,size:2}),f={0:"nop",38152:"ret",38168:"reti",37897:"ijmp",38153:"icall",38280:"sleep",38296:"break",38312:"wdr",38344:"lpm",38376:"spm"};if(f[t])return i(f[t]);if((t&65295)===37896){let p=t>>4&7,b=!(t&128);return i((b?"se":"cl")+["c","z","n","v","s","h","t","i"][p])}let h=t>>12;if(h===0){if((t&65280)===256)return i("movw	"+n((t>>4&15)*2)+", "+n((t&15)*2));if((t&65280)===512)return i("muls	"+n(16+(t>>4&15))+", "+n(16+(t&15)));if((t&65416)===768)return i("mulsu	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===776)return i("fmul	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===896)return i("fmuls	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&65416)===904)return i("fmulsu	"+n(16+(t>>4&7))+", "+n(16+(t&7)));if((t&64512)===1024)return i("cpc	"+n(d(t))+", "+n(R(t)));if((t&64512)===2048)return i("sbc	"+n(d(t))+", "+n(R(t)));if((t&64512)===3072)return d(t)===R(t)?i("lsl	"+n(d(t))):i("add	"+n(d(t))+", "+n(R(t)))}if(h===1){if((t&64512)===4096)return i("cpse	"+n(d(t))+", "+n(R(t)));if((t&64512)===5120)return i("cp	"+n(d(t))+", "+n(R(t)));if((t&64512)===6144)return i("sub	"+n(d(t))+", "+n(R(t)));if((t&64512)===7168)return d(t)===R(t)?i("rol	"+n(d(t))):i("adc	"+n(d(t))+", "+n(R(t)))}if(h===2){if((t&64512)===8192)return d(t)===R(t)?i("tst	"+n(d(t))):i("and	"+n(d(t))+", "+n(R(t)));if((t&64512)===9216)return d(t)===R(t)?i("clr	"+n(d(t))):i("eor	"+n(d(t))+", "+n(R(t)));if((t&64512)===10240)return i("or	"+n(d(t))+", "+n(R(t)));if((t&64512)===11264)return i("mov	"+n(d(t))+", "+n(R(t)))}let v={3:"cpi",4:"sbci",5:"subi",6:"ori",7:"andi",14:"ldi"};if(v[h])return i(v[h]+"	"+n(16+(t>>4&15))+", "+C(O0(t)));if(h===8||h===10){let p=t>>8&32|t>>7&24|t&7,b=t&8?"Y":"Z",w=(t&512)!==0,u=p===0?b:b+"+"+p,l=p===0?w?"st":"ld":w?"std":"ldd";return i(w?l+"	"+u+", "+n(d(t)):l+"	"+n(d(t))+", "+u)}if(h===9){if((t&65039)===36864)return x("lds	"+n(d(t))+", "+C(c,4));if((t&65039)===37376)return x("sts	"+C(c,4)+", "+n(d(t)));let p={1:"Z+",2:"-Z",9:"Y+",10:"-Y",12:"X",13:"X+",14:"-X"};if((t&65024)===36864&&p[t&15])return i("ld	"+n(d(t))+", "+p[t&15]);if((t&65024)===37376&&p[t&15])return i("st	"+p[t&15]+", "+n(d(t)));if((t&65039)===36868)return i("lpm	"+n(d(t))+", Z");if((t&65039)===36869)return i("lpm	"+n(d(t))+", Z+");if((t&65039)===36879)return i("pop	"+n(d(t)));if((t&65039)===37391)return i("push	"+n(d(t)));if((t&65039)===37888)return i("com	"+n(d(t)));if((t&65039)===37889)return i("neg	"+n(d(t)));if((t&65039)===37890)return i("swap	"+n(d(t)));if((t&65039)===37891)return i("inc	"+n(d(t)));if((t&65039)===37893)return i("asr	"+n(d(t)));if((t&65039)===37894)return i("lsr	"+n(d(t)));if((t&65039)===37895)return i("ror	"+n(d(t)));if((t&65039)===37898)return i("dec	"+n(d(t)));if((t&65038)===37900){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("jmp	"+C(2*b,2))}if((t&65038)===37902){let b=(t>>4&31)<<17|(t&1)<<16|c;return x("call	"+C(2*b,2))}if((t&65280)===38400)return i("adiw	"+n(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38656)return i("sbiw	"+n(24+2*(t>>4&3))+", "+C(t>>2&48|t&15));if((t&65280)===38912)return i("cbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39424)return i("sbi	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39168)return i("sbic	"+C(t>>3&31)+", "+(t&7));if((t&65280)===39680)return i("sbis	"+C(t>>3&31)+", "+(t&7));if((t&64512)===39936)return i("mul	"+n(d(t))+", "+n(R(t)))}if(h===11){let p=t>>5&48|t&15;return t&2048?i("out	"+C(p)+", "+n(d(t))):i("in	"+n(d(t))+", "+C(p))}if(h===12){let p=U(t&4095,12);return i("rjmp	."+(p>=0?"+":"")+2*p+"		; "+C(2*r+2+2*p,2))}if(h===13){let p=U(t&4095,12);return i("rcall	."+(p>=0?"+":"")+2*p+"		; "+C(2*r+2+2*p,2))}if(h===15){if((t&63488)===61440||(t&63488)===62464){let p=(t&1024)===0,b=t&7,w=U(t>>3&127,7),s=(p?["brcs","breq","brmi","brvs","brlt","brhs","brts","brie"]:["brcc","brne","brpl","brvc","brge","brhc","brtc","brid"])[b];return i(s+"	."+(w>=0?"+":"")+2*w+"		; "+C(2*r+2+2*w,2))}if((t&65032)===63488)return i("bld	"+n(d(t))+", "+(t&7));if((t&65032)===64e3)return i("bst	"+n(d(t))+", "+(t&7));if((t&65032)===64512)return i("sbrc	"+n(d(t))+", "+(t&7));if((t&65032)===65024)return i("sbrs	"+n(d(t))+", "+(t&7))}return i(".dw	"+C(t,4))}function y0(e){let r=[];for(let t=0;t<e.length;){let{text:c,size:n}=n0(e,t),i=[];for(let x=0;x<n;x++)i.push(e[t+x]|0);r.push({addr:2*t,words:i,src:"    "+c.replace(/\t/g," "),line:0}),t+=n}return r}typeof N<"u"&&(N.exports={disassemble:y0,disasmOne:n0})});var Z0=X((Y0,s0)=>{var{assemble:A0}=e0(),{createRunner:B0}=r0(),{disassemble:k0}=i0();s0.exports={assemble:A0,createRunner:B0,disassemble:k0}});return Z0();})();
+
+;window.AVRLAB_CORE = AVRLAB_CORE;
+</script>
+<script>
+/* ui.js -- Sekiz user interface. Requires globals AVR8, AVRLAB_CORE. */
+"use strict";
+(function () {
+const $ = (id) => document.getElementById(id);
+const F_CPU = 16000000;
+const LED_ON = '#F03A2D', LED_OFF = '#4A211C', LED_ON_STROKE = '#A81E12', LED_OFF_STROKE = '#173F5F';
+function setLed(on) {
+  const el = $('ledL');
+  el.setAttribute('fill', on ? LED_ON : LED_OFF);
+  el.setAttribute('stroke', on ? LED_ON_STROKE : LED_OFF_STROKE);
+}
+
+/* ---------------- examples ---------------- */
+const EXAMPLES = {
+"blink": `; Blink -- the classic, on the built-in "L" LED (pin 13 = PB5).
+; Timing by counted cycles: 8 x 250 x 3 + overhead = ~6040 cycles
+; per delay call; 415 outer repeats = ~2.5 Mcycles = ~156 ms per half
+; period at 16 MHz. Watch the cycle counter confirm it.
+
+.equ DDRB,  0x04
+.equ PORTB, 0x05
+
+start:
+    sbi   DDRB, 5          ; pin 13 as output
+loop:
+    sbi   PORTB, 5         ; LED on
+    rcall delay
+    cbi   PORTB, 5         ; LED off
+    rcall delay
+    rjmp  loop
+
+delay:
+    ldi   r26, 255         ; outer x255
+d0: ldi   r25, 13
+d2: ldi   r24, 250
+d1: dec   r24
+    brne  d1
+    dec   r25
+    brne  d2
+    dec   r26
+    brne  d0
+    ret
+`,
+"hello serial": `; Compute 3+5 in assembly, print "3+5=8" on USART0.
+; The serial monitor below the board shows the transmitted bytes.
+
+.equ UCSR0B, 0xC1          ; USART control: bit 3 = TXEN0
+.equ UDR0,   0xC6          ; USART data register
+
+start:
+    ldi  r16, 1<<3         ; enable transmitter
+    sts  UCSR0B, r16
+
+    ldi  r24, 3
+    ldi  r25, 5
+    add  r24, r25          ; r24 = 8
+
+    ldi  r30, lo8(msg)     ; Z -> message in flash
+    ldi  r31, hi8(msg)
+p:  lpm  r20, Z+
+    tst  r20
+    breq num
+    sts  UDR0, r20
+    rjmp p
+num:
+    subi r24, -48          ; to ASCII (AVR has no ADDI)
+    sts  UDR0, r24
+    ldi  r20, 10
+    sts  UDR0, r20
+halt:
+    rjmp halt
+
+msg:
+    .asciz "3+5="
+`,
+"timer0 poll": `; Timer0 as a real hardware delay: prescaler /1024, poll the
+; overflow flag TOV0. One overflow = 256 x 1024 = 262144 cycles
+; = 16.4 ms. 16 overflows toggle the LED every ~262 ms.
+; This is the mechanism behind Arduino's millis()/delay().
+
+.equ DDRB,   0x04
+.equ PORTB,  0x05
+.equ TCCR0B, 0x45          ; data-space address: sts needed (I/O addr would be 0x25)
+.equ TIFR0,  0x15          ; in I/O bit range: sbi/sbis work
+.equ TOV0,   0
+
+start:
+    sbi  DDRB, 5
+    ldi  r16, 0x05         ; clock/1024
+    sts  TCCR0B, r16
+
+loop:
+    ldi  r17, 16           ; 16 overflows
+wait:
+    sbis TIFR0, TOV0       ; skip when overflow flag set
+    rjmp wait
+    sbi  TIFR0, TOV0       ; writing 1 clears the flag
+    dec  r17
+    brne wait
+
+    in   r18, PORTB        ; toggle PB5
+    ldi  r19, 1<<5
+    eor  r18, r19
+    out  PORTB, r18
+    rjmp loop
+`,
+"registers tour": `; A quick tour for the register panel: watch values appear,
+; SREG flags react, and the stack pointer move. Use Step.
+
+start:
+    ldi  r16, 200
+    ldi  r17, 100
+    add  r16, r17          ; 300 -> 44 with C=1: watch C and H
+    ldi  r18, 0x80
+    lsl  r18               ; 0x00, C=1, Z=1
+    ldi  r24, 250
+    ldi  r25, 0
+    adiw r24, 10           ; 16-bit add on r25:r24
+    push r16               ; SP moves down
+    push r17
+    pop  r17
+    pop  r16
+    rjmp start
+`};
+
+/* ---------------- state ---------------- */
+let runner = null, listing = [], srcMap = new Map();
+let progMode = 'asm';   /* 'asm': flash comes from the editor | 'hex': from a loaded file */
+let progName = '';
+function updateSrcBar() {
+  const bar = $('srcbar');
+  if (progMode === 'hex') {
+    bar.hidden = false;
+    bar.innerHTML = 'Machine code loaded: <b>' + progName +
+      '</b> (disassembly in panel 6). Write assembly here or pick an example to switch back.';
+  } else bar.hidden = true;
+}
+let running = false, rafId = 0, lastPanel = 0;
+let serialBuf = "", ledState = false;
+let speed = 1.0;
+let regPrev = new Uint8Array(32);
+
+function status(msg, isError) {
+  const el = $('status');
+  el.textContent = msg;
+  el.className = 'status' + (isError ? ' err' : '');
+}
+
+/* ---------------- assemble ---------------- */
+function doAssemble() {
+  stop();
+  const src = $('editor').value;
+  if (!src.trim()) { status('editor is empty — write a program, pick an example, or load a .hex', true); return null; }
+  const r = AVRLAB_CORE.assemble(src);
+  if (r.errors.length) {
+    status(r.errors.map(e => 'line ' + e.line + ': ' + e.msg).join('  |  '), true);
+    return null;
+  }
+  listing = r.listing;
+  renderListing();
+  const nWords = r.listing.reduce((a, l) => Math.max(a, (l.addr >> 1) + l.words.length), 0);
+  status('assembled: ' + nWords + ' words (' + (nWords * 2) + ' bytes of flash)');
+  return r;
+}
+
+let lastWords = null;
+function makeRunner(words) {
+  lastWords = words;
+  runner = AVRLAB_CORE.createRunner(AVR8, words);
+  runner.portB.addListener((v) => {
+    const bit = ((v >> 5) & 1) === 1;
+    if (bit !== ledState) { ledState = bit; setLed(bit); }
+  });
+  runner.usart.onByteTransmit = (b) => {
+    serialBuf += String.fromCharCode(b);
+    if (serialBuf.length > 8000) serialBuf = serialBuf.slice(-6000);
+  };
+  serialBuf = ""; ledState = false;
+  setLed(false);
+  regPrev.fill(0);
+  updatePanels(true);
+}
+
+function loadAndReset() {
+  const r = doAssemble();
+  if (r) makeRunner(r.words);
+  return !!r;
+}
+
+/* ---------------- run loop ---------------- */
+function frame() {
+  if (!running) return;
+  const budget = Math.max(1000, Math.floor((F_CPU / 60) * speed));
+  const t0 = performance.now();
+  try { runner.run(budget); }
+  catch (e) { status('runtime error: ' + e.message, true); stop(); return; }
+  const dt = performance.now() - t0;
+  const now = performance.now();
+  if (now - lastPanel > 80) { updatePanels(false); lastPanel = now; }
+  if (dt > 30) status('running (host limited: ' + Math.round(100 * 16.7 / dt * speed) + '% of real time)');
+  rafId = requestAnimationFrame(frame);
+}
+function start() {
+  if (!runner && !loadAndReset()) return;
+  running = true;
+  $('btnRun').textContent = 'Pause';
+  status('running');
+  rafId = requestAnimationFrame(frame);
+}
+function stop() {
+  running = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  if ($('btnRun')) $('btnRun').textContent = 'Run';
+  if (runner) updatePanels(true);
+}
+function stepOnce() {
+  if (!runner && !loadAndReset()) return;
+  if (running) stop();
+  runner.step();
+  updatePanels(true);
+  status('stepped to PC=0x' + (runner.cpu.pc * 2).toString(16).padStart(4, '0'));
+}
+
+/* ---------------- panels ---------------- */
+const HEX2 = (v) => v.toString(16).toUpperCase().padStart(2, '0');
+function updatePanels(showPC) {
+  if (!runner) return;
+  const cpu = runner.cpu;
+  const d = cpu.data;
+  /* registers */
+  let html = '';
+  for (let i = 0; i < 32; i++) {
+    const v = d[i];
+    const chg = v !== regPrev[i];
+    html += '<div class="reg' + (chg ? ' chg' : '') + '"><span>r' + i + '</span>' + HEX2(v) + '</div>';
+    regPrev[i] = v;
+  }
+  $('regs').innerHTML = html;
+  /* SREG */
+  const sreg = d[0x5F];
+  const names = ['I', 'T', 'H', 'S', 'V', 'N', 'Z', 'C'];
+  let sh = '';
+  for (let b = 7; b >= 0; b--) {
+    const on = (sreg >> b) & 1;
+    sh += '<div class="sbit' + (on ? ' on' : '') + '"><em>' + names[7 - b] + '</em>' + on + '</div>';
+  }
+  $('sreg').innerHTML = sh;
+  /* counters */
+  const sp = d[0x5D] | (d[0x5E] << 8);
+  $('pcv').textContent = '0x' + (cpu.pc * 2).toString(16).padStart(4, '0');
+  $('spv').textContent = '0x' + sp.toString(16).padStart(4, '0');
+  $('cyv').textContent = cpu.cycles.toLocaleString();
+  $('tmv').textContent = (cpu.cycles / F_CPU * 1000).toFixed(3) + ' ms';
+  /* serial */
+  const ser = $('serial');
+  if (ser.textContent !== serialBuf) { ser.textContent = serialBuf; ser.scrollTop = ser.scrollHeight; }
+  /* PC highlight in listing */
+  if (showPC) {
+    const pcByte = cpu.pc * 2;
+    document.querySelectorAll('#listing .lrow.cur').forEach(e => e.classList.remove('cur'));
+    const row = document.querySelector('#listing .lrow[data-addr="' + pcByte + '"]');
+    if (row) { row.classList.add('cur'); row.scrollIntoView({ block: 'nearest' }); }
+  }
+}
+function renderListing() {
+  let html = '';
+  for (const l of listing) {
+    html += '<div class="lrow" data-addr="' + l.addr + '"><span class="la">' +
+      l.addr.toString(16).padStart(4, '0') + '</span><span class="lw">' +
+      l.words.map(w => w.toString(16).padStart(4, '0')).join(' ') + '</span><span class="ls">' +
+      l.src.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>';
+  }
+  $('listing').innerHTML = html;
+}
+
+/* ---------------- intel hex import ---------------- */
+function parseIntelHex(text) {
+  const flash = new Uint8Array(0x8000).fill(0xFF);
+  let maxA = 0, base = 0;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line.startsWith(':')) continue;
+    const bytes = [];
+    for (let i = 1; i < line.length; i += 2) bytes.push(parseInt(line.substr(i, 2), 16));
+    const [len, ah, al, type] = bytes;
+    const addr = base + (ah << 8) + al;
+    if (type === 0) {
+      for (let i = 0; i < len; i++) { flash[addr + i] = bytes[4 + i]; }
+      maxA = Math.max(maxA, addr + len);
+    } else if (type === 4) base = ((bytes[4] << 8) | bytes[5]) << 16;
+    else if (type === 1) break;
+  }
+  const words = new Uint16Array(Math.ceil(maxA / 2));
+  for (let i = 0; i < words.length; i++) words[i] = flash[2 * i] | (flash[2 * i + 1] << 8);
+  return words;
+}
+
+/* ---------------- wiring ---------------- */
+window.addEventListener('DOMContentLoaded', () => {
+  const sel = $('examples');
+  for (const name of Object.keys(EXAMPLES)) {
+    const o = document.createElement('option'); o.value = name; o.textContent = name; sel.appendChild(o);
+  }
+  sel.addEventListener('change', () => {
+    if (EXAMPLES[sel.value]) { stop(); progMode = 'asm'; updateSrcBar(); runner = null; $('editor').value = EXAMPLES[sel.value]; doAssemble(); }
+  });
+  $('editor').value = EXAMPLES['blink'];
+  $('btnAsm').addEventListener('click', () => {
+    const r = doAssemble();
+    if (r) { progMode = 'asm'; updateSrcBar(); makeRunner(r.words); }
+  });
+  $('btnRun').addEventListener('click', () => running ? (stop(), status('paused')) : start());
+  $('btnStep').addEventListener('click', stepOnce);
+  const hwReset = () => {
+    stop();
+    if (progMode === 'hex' && lastWords) { makeRunner(lastWords); status('reset (hex program)'); }
+    else { loadAndReset(); status('reset'); }
+  };
+  $('btnReset').addEventListener('click', hwReset);
+  const rb = document.getElementById('hwReset');
+  if (rb) rb.addEventListener('click', hwReset);
+  $('speed').addEventListener('change', () => { speed = parseFloat($('speed').value); });
+  $('hexfile').addEventListener('change', (ev) => {
+    const f = ev.target.files[0]; if (!f) return;
+    const cur = $('editor').value;
+    if (cur.trim() && window.confirm('Loading a .hex clears the assembly editor.\nSave the current program first?')) saveAsm();
+    $('editor').value = '';
+    const rd = new FileReader();
+    rd.onload = () => {
+      stop();
+      try {
+        const words = parseIntelHex(rd.result);
+        progMode = 'hex'; progName = f.name;
+        listing = AVRLAB_CORE.disassemble(words);
+        renderListing();
+        updateSrcBar();
+        makeRunner(words);
+        status(f.name + ': ' + words.length + ' words loaded, disassembly in panel 6. Run to execute, Step to follow the PC.');
+      } catch (e) { status('hex parse failed: ' + e.message, true); }
+    };
+    rd.readAsText(f);
+  });
+  $('btnNew').addEventListener('click', () => {
+    stop(); progMode = 'asm'; updateSrcBar(); runner = null;
+    $('editor').value = '; new program\n; assembles automatically when you press Assemble or Run\n\nstart:\n    \n';
+    listing = []; renderListing(); status('new program');
+  });
+  $('asmfile').addEventListener('change', (ev) => {
+    const f = ev.target.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { stop(); progMode = 'asm'; updateSrcBar(); runner = null; $('editor').value = rd.result; doAssemble(); };
+    rd.readAsText(f);
+    ev.target.value = '';
+  });
+  const saveAsm = () => {
+    const blob = new Blob([$('editor').value], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'program.asm'; a.click();
+  };
+  $('btnSave').addEventListener('click', saveAsm);
+  /* editor: keep Tab inside */
+  $('editor').addEventListener('keydown', (e) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const t = e.target, s = t.selectionStart;
+      t.value = t.value.slice(0, s) + '    ' + t.value.slice(t.selectionEnd);
+      t.selectionStart = t.selectionEnd = s + 4;
+    }
+  });
+  const modal = $('helpModal');
+  $('btnHelp').addEventListener('click', () => { modal.hidden = false; });
+  $('btnHelpClose').addEventListener('click', () => { modal.hidden = true; });
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') modal.hidden = true; });
+  doAssemble();
+  updateBadges();
+});
+function updateBadges() {}
+})();
+
+</script>
+</body>
+</html>
