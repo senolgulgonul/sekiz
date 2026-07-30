@@ -44,6 +44,12 @@ h2 .n{color:var(--copper);margin-right:6px}
 #editor{flex:1;width:100%;resize:none;border:none;outline:none;background:var(--panel);
   color:var(--ink);font:inherit;padding:10px 12px;tab-size:4;min-height:120px}
 .boardwrap{padding:12px;display:flex;justify-content:center;background:var(--panel)}
+.serialrow{display:flex;gap:6px;padding:6px 10px;border-top:1px solid var(--rule);background:var(--panel)}
+.serialrow input{flex:1;font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--rule);outline:none}
+.serialrow input:focus{border-color:var(--pcb)}
+.lrow{cursor:pointer}
+.lrow.bp .la{color:#C0392B;font-weight:700}
+.lrow.bp{box-shadow:inset 3px 0 0 #C0392B}
 #serial{flex:1;min-height:80px;background:var(--panel);color:var(--ink);padding:10px 12px;overflow:auto;
   white-space:pre-wrap;word-break:break-all;border-top:1px solid var(--rule)}
 .grid8{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
@@ -179,8 +185,12 @@ h2 .n{color:var(--copper);margin-right:6px}
         <line x1="231" y1="168" x2="301" y2="168" stroke="#FFFFFF" stroke-width="1"/>
         </svg>
     </div>
-    <h2><span class="n">3</span>Serial monitor — USART0 · TX</h2>
+    <h2><span class="n">3</span>Serial monitor — USART0 · TX out, RX in below</h2>
     <pre id="serial"></pre>
+    <div class="serialrow">
+      <input id="serialIn" type="text" placeholder="type here, Enter sends (adds \n)" autocomplete="off">
+      <button id="btnSend">Send</button>
+    </div>
   </section>
   <section>
     <h2><span class="n">4</span>Registers R0–R31</h2>
@@ -205,6 +215,8 @@ h2 .n{color:var(--copper);margin-right:6px}
     <h4>Quick start</h4>
     <p>Write AVR assembly in panel 1 (or pick an example), press <b>Assemble</b>, then <b>Run</b>.
        <b>Step</b> executes one instruction and follows the program counter in the machine-code listing.
+       Click any listing row to toggle a <b>breakpoint</b> (red address); Run stops when the PC reaches it.
+       Type in the box under the serial monitor and press Enter to send bytes to USART0 (RX).
        The red button on the board resets the running program.</p>
     <h4>Running C/C++ sketches (.ino)</h4>
     <p>Compile in the Arduino IDE, choose <i>Sketch → Export Compiled Binary</i>, then use <b>Load .hex</b> here.
@@ -342,6 +354,25 @@ wait:
     out  PORTB, r18
     rjmp loop
 `,
+"serial echo": `; Talk to the chip: every byte you send arrives in UDR0 and is
+; echoed back. Type in the box under the serial monitor, press Enter,
+; then watch your text come back from the AVR.
+
+.equ UCSR0A, 0xC0          ; bit 7 = RXC0 (receive complete)
+.equ UCSR0B, 0xC1          ; bit 4 = RXEN0, bit 3 = TXEN0
+.equ UDR0,   0xC6
+
+start:
+    ldi  r16, 0x18         ; enable receiver and transmitter
+    sts  UCSR0B, r16
+loop:
+    lds  r17, UCSR0A
+    sbrs r17, 7            ; skip when RXC0 set
+    rjmp loop
+    lds  r18, UDR0         ; read the received byte
+    sts  UDR0, r18         ; and echo it back
+    rjmp loop
+`,
 "registers tour": `; A quick tour for the register panel: watch values appear,
 ; SREG flags react, and the stack pointer move. Use Step.
 
@@ -375,6 +406,8 @@ function updateSrcBar() {
 }
 let running = false, rafId = 0, lastPanel = 0;
 let serialBuf = "", ledState = false;
+const bps = new Set();      /* breakpoint byte addresses */
+let txQueue = [];           /* host -> AVR bytes awaiting USART RX */
 let speed = 1.0;
 let regPrev = new Uint8Array(32);
 
@@ -430,7 +463,24 @@ function frame() {
   if (!running) return;
   const budget = Math.max(1000, Math.floor((F_CPU / 60) * speed));
   const t0 = performance.now();
-  try { runner.run(budget); }
+  try {
+    if (txQueue.length && !runner.usart.rxBusy) runner.usart.writeByte(txQueue.shift());
+    if (bps.size === 0) {
+      runner.run(budget);
+    } else {
+      const end = runner.cpu.cycles + budget;
+      let hit = -1;
+      while (runner.cpu.cycles < end) {
+        runner.step();
+        if (bps.has(runner.cpu.pc * 2)) { hit = runner.cpu.pc * 2; break; }
+      }
+      if (hit >= 0) {
+        stop(); updatePanels(true);
+        status('breakpoint at 0x' + hit.toString(16).padStart(4, '0'));
+        return;
+      }
+    }
+  }
   catch (e) { status('runtime error: ' + e.message, true); stop(); return; }
   const dt = performance.now() - t0;
   const now = performance.now();
@@ -509,6 +559,10 @@ function renderListing() {
       l.src.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span></div>';
   }
   $('listing').innerHTML = html;
+  if (typeof bps !== 'undefined')
+    document.querySelectorAll('#listing .lrow').forEach(r => {
+      if (bps.has(Number(r.getAttribute('data-addr')))) r.classList.add('bp');
+    });
 }
 
 /* ---------------- intel hex import ---------------- */
@@ -610,6 +664,23 @@ window.addEventListener('DOMContentLoaded', () => {
   $('btnHelpClose').addEventListener('click', () => { modal.hidden = true; });
   modal.addEventListener('click', (e) => { if (e.target === modal) modal.hidden = true; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') modal.hidden = true; });
+  $('listing').addEventListener('click', (e) => {
+    const row = e.target.closest ? e.target.closest('.lrow') : null;
+    if (!row) return;
+    const addr = Number(row.dataset ? row.dataset.addr : row.getAttribute('data-addr'));
+    if (bps.has(addr)) { bps.delete(addr); row.classList.remove('bp'); }
+    else { bps.add(addr); row.classList.add('bp'); }
+  });
+  const sendSerial = () => {
+    const v = $('serialIn').value;
+    if (!v && v !== '') return;
+    for (const ch of v + '\n') txQueue.push(ch.charCodeAt(0) & 0xFF);
+    $('serialIn').value = '';
+    if (!running && runner) status('queued ' + (v.length + 1) + ' bytes for USART RX (press Run)');
+  };
+  $('btnSend').addEventListener('click', sendSerial);
+  $('serialIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendSerial(); });
+  window.__sekiz = { bps, tx: (b) => txQueue.push(b) };   /* harness/power-user handle */
   doAssemble();
   updateBadges();
 });
