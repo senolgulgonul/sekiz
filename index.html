@@ -1044,7 +1044,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const fmtMB = (n) => (n / 1048576).toFixed(1);
     try {
       if (!SekizIno.ready) {
-        await SekizIno.ensureWorker(TOOLCHAIN_BASE, (p) =>
+        const absBase = new URL(TOOLCHAIN_BASE, location.href).href;   /* Blob workers cannot resolve relative URLs */
+        await SekizIno.ensureWorker(absBase, (p) =>
           status('downloading toolchain: ' + p.label + ' ' + fmtMB(p.got) + (p.total ? ' / ' + fmtMB(p.total) : '') + ' MB'));
       }
       status('compiling sketch (clang, in this tab)...');
