@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sekiz · 8-bit ATmega328P assembly simulator</title>
+<title>Sekiz · in-browser C/C++ compiler, assembler &amp; ATmega328P simulator</title>
 <style>
 :root{
   --paper:#FBFBF8; --panel:#FFFFFF; --ink:#20262E; --ink-soft:#5A6472;
@@ -114,8 +114,8 @@ h2 .n{color:var(--copper);margin-right:6px}
 </head>
 <body>
 <header>
-  <h1>Seki<b>z</b> <span class="ver">v0.9.1</span></h1>
-  <span class="sub">sekiz = eight · 8-bit ATmega328P assembly simulator · runs entirely in this page · no server</span>
+  <h1>Seki<b>z</b> <span class="ver">v1.0</span></h1>
+  <span class="sub">sekiz = eight · C/C++ compiler, assembler &amp; cycle-accurate ATmega328P simulator · runs entirely in this page · no server</span>
   <span class="spacer"></span>
   <div class="toolbar">
     <button id="btnNew" title="Start an empty program">New</button>
@@ -143,7 +143,7 @@ h2 .n{color:var(--copper);margin-right:6px}
   <section>
     <h2><span class="n">1</span>Program
       <span class="modetabs">
-        <button id="modeAsm" class="mtab on">Assembly</button><button id="modeIno" class="mtab">Arduino .ino</button>
+        <button id="modeAsm" class="mtab">Assembly</button><button id="modeIno" class="mtab on">Arduino .ino</button>
       </span>
     </h2>
     <div id="srcbar" class="srcbar" hidden></div>
@@ -235,9 +235,10 @@ h2 .n{color:var(--copper);margin-right:6px}
 </main>
 <div id="helpModal" class="modal" hidden>
   <div class="modalbox">
-    <h3>Sekiz <span>v0.9.1 · 8-bit ATmega328P assembly simulator</span></h3>
-    <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file, offline-capable 8-bit AVR assembly simulator for teaching.
-       Everything — assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.</p>
+    <h3>Sekiz <span>v1.0 · C/C++ compiler, assembler &amp; cycle-accurate ATmega328P simulator</span></h3>
+    <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file 8-bit AVR tool for teaching.
+       Everything — C/C++ compiler (clang + lld built to WebAssembly), assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.
+       Assembly mode works offline instantly; Arduino .ino mode downloads the ~70&nbsp;MB toolchain once, then it is cached.</p>
     <h4>Quick start</h4>
     <p>Write AVR assembly in panel 1 (or pick an example), press <b>Assemble</b>, then <b>Run</b>.
        <b>Step</b> executes one instruction and follows the program counter in the machine-code listing.
@@ -1034,7 +1035,8 @@ window.addEventListener('DOMContentLoaded', () => {
       else { listing = []; renderListing(); status('ready to Compile'); }
     }
   });
-  $('editor').value = EXAMPLES['blink'];
+  $('editor').value = EXAMPLES['blink'];   /* seed asm buffer so switching back isn't empty */
+  setMode('ino');                          /* default tab: Arduino .ino */
   $('btnAsm').addEventListener('click', () => {
     if (editMode === 'ino') { compileIno(); return; }
     const r = doAssemble();
