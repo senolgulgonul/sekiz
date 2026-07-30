@@ -114,7 +114,7 @@ h2 .n{color:var(--copper);margin-right:6px}
 </head>
 <body>
 <header>
-  <h1>Seki<b>z</b> <span class="ver">v1.0.2</span></h1>
+  <h1>Seki<b>z</b> <span class="ver">v1.0.3</span></h1>
   <span class="sub">sekiz = eight · C/C++ compiler, assembler &amp; cycle-accurate ATmega328P simulator · runs entirely in this page · no server</span>
   <span class="spacer"></span>
   <div class="toolbar">
@@ -235,10 +235,10 @@ h2 .n{color:var(--copper);margin-right:6px}
 </main>
 <div id="helpModal" class="modal" hidden>
   <div class="modalbox">
-    <h3>Sekiz <span>v1.0.2 · C/C++ compiler, assembler &amp; cycle-accurate ATmega328P simulator</span></h3>
+    <h3>Sekiz <span>v1.0.3 · C/C++ compiler, assembler &amp; cycle-accurate ATmega328P simulator</span></h3>
     <p><i>Sekiz</i> is Turkish for <i>eight</i> — a single-file 8-bit AVR tool for teaching.
        Everything — C/C++ compiler (clang + lld built to WebAssembly), assembler, disassembler, CPU and peripherals — runs in this page. No server, no account.
-       Assembly mode works offline instantly; Arduino .ino mode downloads the ~70&nbsp;MB toolchain once, then it is cached.</p>
+       Assembly mode works offline instantly; Arduino .ino mode downloads the ~28&nbsp;MB toolchain once (72&nbsp;MB unpacked), then it is cached.</p>
     <h4>Quick start</h4>
     <p>Write AVR assembly in panel 1 (or pick an example), press <b>Assemble</b>, then <b>Run</b>.
        <b>Step</b> executes one instruction and follows the program counter in the machine-code listing.
@@ -247,7 +247,7 @@ h2 .n{color:var(--copper);margin-right:6px}
        The red button on the board resets the running program.</p>
     <h4>Arduino .ino mode (in-browser compiler)</h4>
     <p>Switch the Program panel to <b>Arduino .ino</b> and press <b>Compile</b>. The first use downloads
-       the toolchain (~70 MB: real clang + lld built to WebAssembly, AVR backend) which your browser caches;
+       the toolchain (~28 MB download, 72 MB unpacked: real clang + lld built to WebAssembly, AVR backend) which your browser caches;
        after that, sketches compile locally in seconds. No server is involved at any point.
        Alternatively: compile in the Arduino IDE, <i>Sketch → Export Compiled Binary</i>, and use <b>Load .hex</b>.</p>
     <h4>Differences from avr-gcc (clang backend)</h4>
@@ -1035,7 +1035,7 @@ window.addEventListener('DOMContentLoaded', () => {
     $('editor').value = buffers[m] !== null ? buffers[m]
       : (m === 'ino' ? EXAMPLES_INO['blink (classic)'] : EXAMPLES['blink']);
     if (m === 'asm') doAssemble();
-    else { listing = []; renderListing(); status('Arduino mode — press Compile (first use downloads the ~70 MB toolchain, then it is cached)'); }
+    else { listing = []; renderListing(); status('Arduino mode — press Compile (first use downloads the ~28 MB toolchain, then it is cached)'); }
   }
   $('modeAsm').addEventListener('click', () => setMode('asm'));
   $('modeIno').addEventListener('click', () => setMode('ino'));
